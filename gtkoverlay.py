@@ -3,8 +3,6 @@
 from gi.repository import Gtk, Gdk, GdkPixbuf, GdkX11, GLib
 
 import vlc
-import time
-
 
 osd_margin = 10
 
@@ -37,15 +35,10 @@ class osd_window(Gtk.Window):
         super(osd_window, self).__init__(title='OSD',role='OSD',resizable=False,decorated=False,accept_focus=False)
         self.set_keep_above(True)
         self.set_border_width(0)
-        self.connect('show', self.on_show)
+        self.connect('show', self.reposition)
 
-    def on_show(self, *args, **kwargs):
-        # Set window position
-        ## I couldn't wrap my head around how gravity worked etc, but I'm doing this how the documentation says to do it and it works.
-        ##
-        ## https://developer.gnome.org/gtk3/stable/GtkWindow.html#gtk-window-move
-        self.set_gravity(Gdk.Gravity.NORTH_EAST)
-
+    def reposition(self, *args, **kwargs):
+        # Set OSD position based on the position of the main window
         osd_size = self.get_size()
         main_win_pos = window.get_position()
         main_win_size = window.get_size()
@@ -53,7 +46,7 @@ class osd_window(Gtk.Window):
         self.move(main_win_pos[0]+size_offset[0]-osd_margin, main_win_pos[1]+osd_margin)
 
 osd = osd_window()
-window.connect('configure-event', osd.on_show)
+window.connect('configure-event', osd.reposition)
 overlay = Gtk.Overlay()
 osd.add(overlay)
 osd_bg = Gtk.Image.new_from_file('osd_bg.png')
@@ -67,12 +60,7 @@ textview.override_background_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(0, 0, 0, 0)) 
 textview.override_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(1, 1, 1, 1)) # Set the foreground to white
 overlay.add_overlay(textview)
 
-#osd.show_all()
-GLib.timeout_add(2000, osd.show_all)
-
-#print window.get_position()
-#print window.get_size()
-#osd.set_position(window.get_position+(window.get_size()-osd.get_size()))
+osd.show_all()
 
 if __name__ == '__main__':
     Gtk.main()
