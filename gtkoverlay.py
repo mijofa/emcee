@@ -11,15 +11,21 @@ instance = vlc.Instance()
 
 class VLCWidget(Gtk.DrawingArea):
   def __init__(self, *p):
-    Gtk.DrawingArea.__init__(self)
+    Gtk.DrawingArea.__init__(self, expand=True)
+    self.set_hexpand(True)
+    self.override_background_color(0, Gdk.RGBA(red=0,green=0,blue=0))
+#    self.props.align  = Gtk.ALIGN_FULL
 #    self.set_size_request(1024,768)
     self.player = instance.media_player_new()
     def handle_embed(*args):
       self.player.set_xwindow(self.get_property('window').get_xid())
       return True
     self.connect("map", handle_embed)
+#    self.set_size_request(320,600)
   def resize(self, *args):
-    self.set_size_request(*self.get_parent().get_size())
+    print(dir(args[0]))
+    print(self.queue_resize())
+#    self.set_size_request(*self.get_parent().get_size())
 
 window = Gtk.Window(title='Emcee')
 window.connect("destroy", lambda q: Gtk.main_quit())
@@ -66,7 +72,7 @@ class osd_window(Gtk.Window):
         self.move(parent_pos[0]+pos_offset-osd_margin, parent_pos[1]+osd_margin)
 
     def toggle(self):
-        if self.is_visible():
+        if self.get_visible():
             self.hide()
         else:
             self.show_all()
@@ -85,8 +91,8 @@ osd.add(textview)
 
 keybindings = {
     'space': vid.player.pause,
-    'Left':  lambda: vid.player.set_time(vid.player.get_time()-20000L),
-    'Right': lambda: vid.player.set_time(vid.player.get_time()+30000L),
+    'Left':  lambda: vid.player.set_time(vid.player.get_time()-20000), # 20 seconds back
+    'Right': lambda: vid.player.set_time(vid.player.get_time()+30000), # 30 seconds forward
     'F':     window.fullscreen,
     'f':     window.unfullscreen,
     'i':     osd.toggle,
@@ -95,7 +101,7 @@ keybindings = {
 def on_key_press(window, event):
     keyname = Gdk.keyval_name(event.keyval)
     if keyname in keybindings.keys():
-        print keybindings[keyname]()
+        print(keybindings[keyname]())
     else:
         print('no keybinding found for %s' % keyname)
 

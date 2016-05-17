@@ -1,61 +1,53 @@
 #!/usr/bin/python3
 
-import datetime
-from gi.repository import Gtk, Gdk, GdkPixbuf, GdkX11
+from gi.repository import Gtk, Gdk, GdkPixbuf, GdkX11, GLib
 
-margin = 10
+class osd_window(Gtk.Window):
+    def __init__(self, parent):
+        super(osd_window, self).__init__(
+            title='OSD',
+            role='OSD',
+            border_width=0,
+            resizable=False,
+            decorated=False,
+            accept_focus=False,
+            skip_pager_hint=True,
+            skip_taskbar_hint=True,
+        )
+        self.connect('show', self.reposition)
+        parent.connect('configure-event', self.reposition)
+        self.set_transient_for(parent) # Force the OSD to stay above the main window
 
-osd = Gtk.Window(title='OSD',role='OSD',resizable=False,decorated=False,accept_focus=False)
+        overlay = Gtk.Overlay()
+        self.add(overlay)
+        bg = Gtk.Image.new_from_file('osd_bg.png')
+        bg.override_background_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(0, 0, 0, 1)) # Set the background to black
+        overlay.add(bg)
+        self.add = overlay.add_overlay
 
-def on_show(self, *args, **kwargs):
-    # Set window position
-    ## I couldn't wrap my head around how gravity worked etc, but I'm doing this how the documentation says to do it and it works.
-    ##
-    ## https://developer.gnome.org/gtk3/stable/GtkWindow.html#gtk-window-move
-    osd.set_gravity(Gdk.Gravity.NORTH_EAST)
-    screen = osd.get_screen()
-    win_size = osd.get_size()
-    x_pos = screen.width()-margin-win_size[0]
-    y_pos = margin
-    osd.move(x_pos,y_pos)
+    def reposition(self, parent, *args, **kwargs):
+        # Set OSD position based on the position of the main window
+        osd_size = self.get_size()
+        parent_pos = parent.get_position()
+        parent_size = parent.get_size()
+        pos_offset = parent_size[0]-osd_size[0]
+        self.move(parent_pos[0]+pos_offset-osd_margin, parent_pos[1]+osd_margin)
 
-osd.set_keep_above(True)
-osd.set_border_width(0)
-osd.connect('show', on_show)
+    def toggle(self):
+        if self.get_visible():
+            self.hide()
+        else:
+            self.show_all()
+            self.reposition(window)
 
-box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-
-overlay = Gtk.Overlay()
-osd.add(overlay)
-
-osd_bg = Gtk.Image.new_from_file('osd_bg.png')
-osd_bg.override_background_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(0, 0, 0, 1)) # Set the background to black
-
-overlay.add(box)
-
-overlay.add_overlay(osd_bg)
-
-label = Gtk.Label('foo')
-label.set_justify(Gtk.Justification.LEFT)
-label.set_markup('<span size="450000">foobar</span>')
-#overlay.add_overlay(label)
-box.add(label)
-label2 = Gtk.Label('bar')
-box.add(label2)
-
-def show():
-    osd.show_all()
-def hide():
-    osd.hide()
-
+osd = osd_window(window)
+textview = Gtk.TextView()
+##textview.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
+textbuffer = textview.get_buffer()
+textbuffer.set_text("Welcome to the PyGObject Tutorial\n\nThis guide aims to provide an introduction to using Python and GTK+.\n\nIt includes many sample code files and exercises for building your knowledge of the language.", -1)
+textview.override_background_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(0, 0, 0, 0)) # Set the background to transparent
+textview.override_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(1, 1, 1, 1)) # Set the foreground to white
+osd.add(textview)
 
 if __name__ == '__main__':
-    import sys
-    import argparse
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--progress', '-p', action='store', nargs='?', default=0, type=int)
-    parser.add_argument('text', action='store', type=str)
-    args = parser.parse_args(sys.argv[1:])
-    print args.progress, args.text
-    show()
     Gtk.main()
