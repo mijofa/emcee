@@ -1,8 +1,7 @@
 #!/usr/bin/python3
-import pprint
 
 from gi.repository import Gtk, Gdk, GObject
-from gi.repository import GdkX11 # needed for get_xid()
+from gi.repository import GdkX11 # needed for get_xid() even though it's never actually mentioned
 
 # Make VLC's threading play nicely with GObject's
 GObject.threads_init()
@@ -10,22 +9,24 @@ GObject.threads_init()
 import sys
 import vlc
 
-vid_states = vlc.State
-
-class PlayerException(Exception):
-    """Generic exception for VLC's errors"""
-    def __init__(self, player, *args):
-        self.player = player
-        super(PlayerException, self).__init__(*args)
-
 class VLCWidget(Gtk.DrawingArea):
+    # These are the event signals that can be triggered by this widget
     __gsignals__ = {
-                    'end_reached': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
-                    'time_changed': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
+                    'end_reached':      (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
+                    'time_changed':     (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
                     'position_changed': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
+                    'paused':           (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
+                    'playing':          (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
+                    'media_state':      (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
+                    'error':            (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
                    }
+
+    # Initialise state variables
     time = 0
     position = 0
+    length = 0
+    paused = True
+    state = 'NothingSpecial' # This string is copied from VLC's default state
 
     def __init__(self, *args):
 
@@ -38,50 +39,76 @@ class VLCWidget(Gtk.DrawingArea):
         self.player = self.instance.media_player_new()
         self.connect("map", lambda _: self.player.set_xwindow(self.get_property('window').get_xid()))
 
-        # Connect some of VLC's events to GTK events
+        # Set up hooks to the VLC event manager to trigger some Python functions
         ## FIXME: Should these all be changed to emit GObject signals?
+        #
+        # This is all the possible EventType's that can be triggered on, they aren't all from the MediaPlayer object, some come from other VLC objects only
         #
         # ['MediaDiscovererEnded', 'MediaDiscovererStarted', 'MediaDurationChanged', 'MediaFreed', 'MediaListEndReached', 'MediaListItemAdded', 'MediaListItemDeleted', 'MediaListPlayerNextItemSet', 'MediaListPlayerPlayed', 'MediaListPlayerStopped', 'MediaListViewItemAdded', 'MediaListViewItemDeleted', 'MediaListViewWillAddItem', 'MediaListViewWillDeleteItem', 'MediaListWillAddItem', 'MediaListWillDeleteItem', 'MediaMetaChanged', 'MediaParsedChanged', 'MediaPlayerAudioDevice', 'MediaPlayerAudioVolume', 'MediaPlayerBackward', 'MediaPlayerBuffering', 'MediaPlayerChapterChanged', 'MediaPlayerCorked', 'MediaPlayerESAdded', 'MediaPlayerESDeleted', 'MediaPlayerESSelected', 'MediaPlayerEncounteredError', 'MediaPlayerEndReached', 'MediaPlayerForward', 'MediaPlayerLengthChanged', 'MediaPlayerMediaChanged', 'MediaPlayerMuted', 'MediaPlayerNothingSpecial', 'MediaPlayerOpening', 'MediaPlayerPausableChanged', 'MediaPlayerPaused', 'MediaPlayerPlaying', 'MediaPlayerPositionChanged', 'MediaPlayerScrambledChanged', 'MediaPlayerSeekableChanged', 'MediaPlayerSnapshotTaken', 'MediaPlayerStopped', 'MediaPlayerTimeChanged', 'MediaPlayerTitleChanged', 'MediaPlayerUncorked', 'MediaPlayerUnmuted', 'MediaPlayerVout', 'MediaStateChanged', 'MediaSubItemAdded', 'MediaSubItemTreeAdded', 'VlmMediaAdded', 'VlmMediaChanged', 'VlmMediaInstanceStarted', 'VlmMediaInstanceStatusEnd', 'VlmMediaInstanceStatusError', 'VlmMediaInstanceStatusInit', 'VlmMediaInstanceStatusOpening', 'VlmMediaInstanceStatusPause', 'VlmMediaInstanceStatusPlaying', 'VlmMediaInstanceStopped', 'VlmMediaRemoved']
 
         self.event_manager = self.player.event_manager()
-        self.event_manager.event_attach(vlc.EventType.MediaPlayerPaused, self.on_paused)                    #
-        self.event_manager.event_attach(vlc.EventType.MediaPlayerPlaying, self.on_playing)                  #
-        self.event_manager.event_attach(vlc.EventType.MediaPlayerTimeChanged, self.on_time_changed)         # Current position in milliseconds
-        self.event_manager.event_attach(vlc.EventType.MediaPlayerPositionChanged, self.on_position_changed) # Current position in percentage of total
-        #self.event_manager.event_attach(vlc.EventType.MediaPlayerTitleChanged, self.on_title_changed)      # FIXME: Doesn't trigger, might be that my test file is insufficient
+        self.event_manager.event_attach(vlc.EventType.MediaPlayerLengthChanged, self._on_length)             # Should really only trigger when loading new media
+        self.event_manager.event_attach(vlc.EventType.MediaPlayerPaused, self._on_paused)                    #
+        self.event_manager.event_attach(vlc.EventType.MediaPlayerPlaying, self._on_playing)                  #
+        self.event_manager.event_attach(vlc.EventType.MediaPlayerTimeChanged, self._on_time_changed)         # Current position in milliseconds
+        self.event_manager.event_attach(vlc.EventType.MediaPlayerPositionChanged, self._on_position_changed) # Current position in percentage of total
+        #self.event_manager.event_attach(vlc.EventType.MediaPlayerTitleChanged, self._on_title_changed)      # FIXME: Doesn't trigger, might be that my test file is insufficient
         self.event_manager.event_attach(vlc.EventType.MediaPlayerEndReached, lambda _:self.emit('end_reached'))
 
-        self.event_manager.event_attach(vlc.EventType.MediaPlayerEncounteredError, self.on_error)
+        self.event_manager.event_attach(vlc.EventType.MediaPlayerEncounteredError, lambda _:self.emit('error'))
 
-    def on_error(self, event):
-        raise PlayerException(self.player, 'foobar')
-
-    def on_paused(self, *args):
-        print('paused', args)
-    def on_playing(self, *args):
-        print('playing', args)
-    def on_time_changed(self, event):
+    def _on_length(self, event):
+        self.length = event.u.new_length/1000
+    def _on_paused(self, event):
+        self.paused = True
+        self.emit('paused')
+    def _on_playing(self, event):
+        self.paused = False
+        self.emit('playing')
+    def _on_time_changed(self, event):
         self.time = event.u.new_time/1000
         self.emit('time_changed')
-    def on_position_changed(self, event):
+    def _on_position_changed(self, event):
         self.position = event.u.new_position
         self.emit('position_changed')
 
-    def _load_media(self, uri):
+    def _load_media(self, uri, local=True):
         """Load a new media file/stream, and whatever else is involved therein"""
 
         ##FIXME: Handle loading of subtitles as well
         ##       If a .srt or similar is placed with the media file, load that and turn them on by default. (I think VLC does this automatically)
         ##       Otherwise turn them off by default, but search for them automatically at http://thesubdb.com/
         ##       TV stream telx & similar should be turned off by default as well.
-        self.media = self.instance.media_new(uri)
+
+        # VLC detects local vs. remote URIs by simply checking if there is a ':' character in it, this is insufficient.
+        ## FIXME: Actually automate this using better heuristics rather than just passing that test off to the user
+        ##        Used urlparse.urlparse for this test in UPMC
+        if local:
+            self.media = self.instance.media_new_path(uri)
+        else:
+            self.media = self.instance.media_new(uri)
+
+        self.media_em = self.media.event_manager()
+        self.media_em.event_attach(vlc.EventType.MediaStateChanged, self._state_changed)
+
         self.player.set_media(self.media)
 
-    def play(self, uri=None):
+    def _state_changed(self, event):
+        # All possible states at time of writing --Mike June 2016
+        #
+        # ['Buffering', 'Ended', 'Error', 'NothingSpecial', 'Opening', 'Paused', 'Playing', 'Stopped']
+
+        ## Reverse VLC's enum to get the name from the value.
+        ## This is not at all intuitive, but I'm at the mercy of the VLC library here.
+        self.state = vlc.State._enum_names_[event.u.new_state]
+
+        self.emit('media_state')
+
+    def play(self, uri=None, local=True):
         """Unpause if currently paused, or load new media if uri is set"""
 
         if uri:
-            self._load_media(uri)
+            self._load_media(uri, local=local)
 
         self.show_all()
         return self.player.play()
@@ -117,15 +144,14 @@ class VLCWidget(Gtk.DrawingArea):
 
 if __name__ == '__main__':
     window = Gtk.Window(title='Emcee')
-    window.connect("destroy", lambda q: Gtk.main_quit())
+    window.connect("destroy", lambda q: Gtk.main_quit()) # Quit & cleanup when closed
     window.show()
-    window.set_size_request(1, 3)
 
     vid = VLCWidget()
     window.add(vid)
-    vid.show()
     vid.play(sys.argv[1])
 
+    ## Keyboard input setup
     keybindings = {
         'space': vid.toggle_pause,
         'Left':  lambda: vid.seek(-20), # 20 seconds back
@@ -141,13 +167,52 @@ if __name__ == '__main__':
     def on_key_press(window, event):
         keyname = Gdk.keyval_name(event.keyval)
         if keyname in keybindings.keys():
-            print(keyname, keybindings[keyname]())
+            keybindings[keyname]()
         else:
             print('no keybinding found for %s' % keyname)
 
     window.connect("key_press_event", on_key_press)
-    vid.connect('end_reached', lambda _:Gtk.main_quit())
-    #vid.connect('position_changed', lambda a: print(a.position)) # Use this for a progress bar
-    #vid.connect('time_changed', lambda a: print(a.time))         # Use this for setting the actual number next to said progress bar
 
+    ## CLI output, showing current position and state
+    bar_length = 40 # FIXME: Somehow detect width of terminal and set this accordingly
+    def update_status(vid_widget):
+        """Make a fancy looking progressbar with numbers for how far into the current movie you are"""
+        if vid_widget.state not in ('Playing', 'Paused', 'Ended'):
+            print('Unknown state:', vid_widget.state)
+            return
+        current_min = int(vid_widget.time/60)
+        current_sec = int(vid_widget.time%60)
+        current_progress = int(vid_widget.position*100)
+        bar = ''
+        for i in range(0, int(bar_length*vid_widget.position)-1):
+            bar += '='
+        bar += '||' if vid_widget.paused else '|>'
+        for i in range(len(bar)-1, bar_length):
+            bar += '-'
+        length_min = int(vid_widget.length/60)
+        length_sec = int(vid_widget.length%60)
+        print("\r{cm:02}:{cs:02} [{bar}] {p}% {lm:02}:{ls:02} ".format(
+                cm=current_min, cs=current_sec,
+                bar=bar, p=current_progress,
+                lm=length_min, ls=length_sec),
+            end='')
+
+    # FIXME: What other events should I hook this into?
+    vid.connect('paused',           update_status)
+    vid.connect('position_changed', update_status)
+    #vid.connect('time_changed',     update_status) # Only really need either time or position, not both
+    vid.connect('media_state',      update_status)
+
+    ## Once off resize when loading media
+    def resize(vid_widget):
+        size = vid_widget.player.video_get_size()
+        if size != (0,0):
+            window.resize(*size)
+            vid.disconnect(resize_event)
+
+    # FIXME: Not actually resizing every time
+    resize_event = vid.connect('position_changed', resize) # Gets cleared from inside the resize function
+
+    vid.connect('error',       lambda _:Gtk.main_quit()) # Quit & cleanup when VLC has an error
+    vid.connect('end_reached', lambda _:Gtk.main_quit()) # Quit & cleanup when finished media file
     Gtk.main()
