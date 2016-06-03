@@ -37,6 +37,8 @@ class VLCWidget(Gtk.DrawingArea):
         # Create the VLC instance, and tell it how to inject itself into the DrawingArea widget.
         self.instance = vlc.Instance()
         self.player = self.instance.media_player_new()
+
+        ## FIXME: Can self.player.video_set_callbacks be used to inject frames into the widget instead of this?
         self.connect("map", lambda _: self.player.set_xwindow(self.get_property('window').get_xid()))
 
         # Set up hooks to the VLC event manager to trigger some Python functions
@@ -84,16 +86,19 @@ class VLCWidget(Gtk.DrawingArea):
         ## FIXME: Actually automate this using better heuristics rather than just passing that test off to the user
         ##        Used urlparse.urlparse for this test in UPMC
         if local:
-            self.media = self.instance.media_new_path(uri)
+            media = self.instance.media_new_path(uri)
         else:
-            self.media = self.instance.media_new(uri)
+            media = self.instance.media_new(uri)
 
-        self.media_em = self.media.event_manager()
-        self.media_em.event_attach(vlc.EventType.MediaStateChanged, self._state_changed)
+#        media.parse()
+#        print(media.tracks_get())
+        media_em = media.event_manager()
+        media_em.event_attach(vlc.EventType.MediaStateChanged, self._on_state_change)
+#        media_em.event_attach(vlc.EventType.MediaMetaChanged,  self._on_meta_change)
 
-        self.player.set_media(self.media)
+        self.player.set_media(media)
 
-    def _state_changed(self, event):
+    def _on_state_change(self, event):
         # All possible states at time of writing --Mike June 2016
         #
         # ['Buffering', 'Ended', 'Error', 'NothingSpecial', 'Opening', 'Paused', 'Playing', 'Stopped']
@@ -104,13 +109,18 @@ class VLCWidget(Gtk.DrawingArea):
 
         self.emit('media_state')
 
+    def _on_meta_change(self, event):
+        """Handle title changes and such here, mainly for streaming media"""
+        ## FIXME: Not actually sure if useful
+        pass
+
     def play(self, uri=None, local=True):
         """Unpause if currently paused, or load new media if uri is set"""
 
         if uri:
             self._load_media(uri, local=local)
+            self.show_all()
 
-        self.show_all()
         return self.player.play()
 
     def stop(self):
@@ -131,7 +141,7 @@ class VLCWidget(Gtk.DrawingArea):
     def seek(self, seconds, relative=True):
         """Jump forward or back in the stream, if relative is false then it will go to the specified time rather than jumping that far."""
 
-        ##FIXME: Add logic to avoid going past the beginning or end of the media
+        ##FIXME: Add logic to avoid going past the beginning or end of the media?
         if self.player.is_seekable():
             milliseconds = seconds*1000 # VLC's logic deals with milliseconds
 
@@ -158,10 +168,11 @@ if __name__ == '__main__':
         'Right': lambda: vid.seek(+30), # 30 seconds forward
         'F':     window.fullscreen,
         'f':     window.unfullscreen,
-        's':     vid.stop,
-        'i':     lambda: print(vid.player.get_time()),
+        'BackSpace':     vid.stop,
+        'i':     lambda: print(vid.time),
         'p':     lambda: vid.play(sys.argv[1]),
         'Escape':Gtk.main_quit,
+#        's'::    lambda: print(vid.
     }
 
     def on_key_press(window, event):
