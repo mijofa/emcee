@@ -86,17 +86,21 @@ class VLCWidget(Gtk.DrawingArea):
         ## FIXME: Actually automate this using better heuristics rather than just passing that test off to the user
         ##        Used urlparse.urlparse for this test in UPMC
         if local:
+            ## FIXME: bytes() conversion here not necessary for python-vlc 2.2.*
+            ##        Should I instead check version at import time and just error out completely if < 2.2?
+            if not vlc.libvlc_get_version().startswith(b'2.2.'):
+                uri = bytes(uri, sys.getfilesystemencoding())
             media = self.instance.media_new_path(uri)
         else:
             media = self.instance.media_new(uri)
 
-#        media.parse()
-#        print(media.tracks_get())
         media_em = media.event_manager()
         media_em.event_attach(vlc.EventType.MediaStateChanged, self._on_state_change)
 #        media_em.event_attach(vlc.EventType.MediaMetaChanged,  self._on_meta_change)
 
         self.player.set_media(media)
+        ## FIXME: SPU tracks is unknown here, has to have played the media a bit first.
+        print(self.player.video_get_spu_description())
 
     def _on_state_change(self, event):
         # All possible states at time of writing --Mike June 2016
@@ -130,7 +134,7 @@ class VLCWidget(Gtk.DrawingArea):
         return self.player.stop()
 
     def toggle_pause(self):
-        """Toggle current pause state. Return True if paused, False if unpaused"""
+        """Toggle current pause state. Return final state"""
 
         if self.player.can_pause():
             self.player.pause()
@@ -138,19 +142,22 @@ class VLCWidget(Gtk.DrawingArea):
         else:
             return False
 
-    def seek(self, seconds, relative=True):
-        """Jump forward or back in the stream, if relative is false then it will go to the specified time rather than jumping that far."""
+    def set_time(self, seconds):
+        """Jump to certain point in the media, unlike seek() this deals with absolute time."""
+
+        milliseconds = int(seconds*1000) # VLC's logic deals with milliseconds
 
         ##FIXME: Add logic to avoid going past the beginning or end of the media?
         if self.player.is_seekable():
-            milliseconds = seconds*1000 # VLC's logic deals with milliseconds
-
-            if relative:
-                self.player.set_time(self.player.get_time()+milliseconds)
-            else:
-                self.player.set_time(milliseconds)
+            self.player.set_time(milliseconds)
 
         return int(self.player.get_time()/1000)
+
+    def seek(self, seconds):
+        """Jump forward or back in the media, unlike set_time() this deals with relative time.."""
+
+        return self.set_time(self.time+seconds)
+
 
 if __name__ == '__main__':
     window = Gtk.Window(title='Emcee')
