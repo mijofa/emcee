@@ -7,6 +7,8 @@ from gi.repository import GdkX11 # needed for get_xid() even though it's never a
 GObject.threads_init()
 
 import sys
+# Make sure you get the right version of python-vlc to match your installed version of VLC, acquired from here
+# https://www.olivieraubert.net/vlc/python-ctypes/
 import vlc
 
 class VLCWidget(Gtk.DrawingArea):
