@@ -21,6 +21,7 @@ class VLCWidget(Gtk.DrawingArea):
                     'playing':          (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
                     'media_state':      (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
                     'error':            (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
+                    'started':            (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
                    }
 
     # Initialise state variables
@@ -98,11 +99,9 @@ class VLCWidget(Gtk.DrawingArea):
 
         media_em = media.event_manager()
         media_em.event_attach(vlc.EventType.MediaStateChanged, self._on_state_change)
-#        media_em.event_attach(vlc.EventType.MediaMetaChanged,  self._on_meta_change)
+        media_em.event_attach(vlc.EventType.MediaParsedChanged,  self._on_parsed)
 
         self.player.set_media(media)
-        ## FIXME: SPU tracks is unknown here, has to have played the media a bit first.
-        print(self.player.video_get_spu_description())
 
     def _on_state_change(self, event):
         # All possible states at time of writing --Mike June 2016
@@ -114,11 +113,19 @@ class VLCWidget(Gtk.DrawingArea):
         self.state = vlc.State._enum_names_[event.u.new_state]
 
         self.emit('media_state')
+    def _on_parsed(self, event):
+        """Handle once-off reading of media metadata"""
+        # This function triggers when parsed state changes not just when it's parsed, so check that it is currently parsed
+        if self.player.get_media().is_parsed():
+            if 0 == self.player.video_get_spu_count():
+                self.subtitles = {-1: 'No subtitles found'}
+            else:
+                self.subtitles = dict(self.player.video_get_spu_description())
+                self.subtitles[-1] = 'Disabled' ## FIXME: I believe I've seen things other than '-1' used to disable subtitles, should they be normalised?
+                ## FIXME: Might need to do some ugly teletext handling stuff
 
-    def _on_meta_change(self, event):
-        """Handle title changes and such here, mainly for streaming media"""
-        ## FIXME: Not actually sure if useful
-        pass
+            ##FIXME: Process audio tracks, and other such things as well.
+            self.emit('started')
 
     def play(self, uri=None, local=True):
         """Unpause if currently paused, or load new media if uri is set"""
@@ -159,6 +166,43 @@ class VLCWidget(Gtk.DrawingArea):
         """Jump forward or back in the media, unlike set_time() this deals with relative time.."""
 
         return self.set_time(self.time+seconds)
+
+    def get_current_subtitles(self):
+        """Get name of current subtitles track"""
+        return self.subtitles[self.player.video_get_spu()]
+
+    def get_subtitles(self):
+        """Get name of all subtitles tracks"""
+        return list(self.subtitles.values())
+
+    def set_subtitles(self, index):
+        """Set current subtitles track, index is based on the order from get_subtitles()"""
+        if index == -1:
+            # Just turn them off
+            self.player.video_set_spu(-1)
+            return 'Disabled'
+
+        if len(self.subtitles) == 0:
+            return 'No subtitles found'
+        elif len(self.subtitles) > index:
+            # VLC needs the track ID, but I just want to deal with an index from a list of just the subtitles tracks.
+            # Python3 dict.keys() doesn't support indexing, so converting it to a standard list.
+            self.player.video_set_spu(list(self.subtitles.keys())[index])
+            return self.get_current_subtitles()
+        else:
+            return 'Subtitles track {} not found'.format(index)
+
+    def increment_subtitles(self, inc=1):
+        """Increment through subsitles in the order they come from get_subtitles()"""
+        if len(self.subtitles) == 0:
+            return 'No subtitles found'
+
+        # Find the current index and compare with the increment.
+        index = list(self.subtitles.keys()).index(self.player.video_get_spu())
+        index += inc
+        index = index%len(self.subtitles) # In case it's above the max or below 0
+
+        return self.set_subtitles(index)
 
 
 if __name__ == '__main__':
@@ -229,10 +273,8 @@ if __name__ == '__main__':
         size = vid_widget.player.video_get_size()
         if size != (0,0):
             window.resize(*size)
-            vid.disconnect(resize_event)
 
-    # FIXME: Not actually resizing every time
-    resize_event = vid.connect('position_changed', resize) # Gets cleared from inside the resize function
+    vid.connect('started',      resize)
 
     vid.connect('error',        lambda _:Gtk.main_quit()) # Quit & cleanup when VLC has an error
     vid.connect('end_reached',  lambda _:Gtk.main_quit()) # Quit & cleanup when finished media file
