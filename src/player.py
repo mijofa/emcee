@@ -172,16 +172,16 @@ if __name__ == '__main__':
 
     ## Keyboard input setup
     keybindings = {
-        'space': vid.toggle_pause,
-        'Left':  lambda: vid.seek(-20), # 20 seconds back
-        'Right': lambda: vid.seek(+30), # 30 seconds forward
-        'F':     window.fullscreen,
-        'f':     window.unfullscreen,
-        'BackSpace':     vid.stop,
-        'i':     lambda: print(vid.time),
-        'p':     lambda: vid.play(sys.argv[1]),
-        'Escape':Gtk.main_quit,
-#        's'::    lambda: print(vid.
+        'space':        vid.toggle_pause,
+        'Left':         lambda: vid.seek(-20), # 20 seconds back
+        'Right':        lambda: vid.seek(+30), # 30 seconds forward
+        'F':            window.fullscreen,
+        'f':            window.unfullscreen,
+        'BackSpace':    vid.stop,
+        'i':            lambda: print(vid.get_subtitles()),
+        'p':            lambda: vid.play(sys.argv[1]),
+        'Escape':       Gtk.main_quit,
+        's':            lambda: print(vid.increment_subtitles()),
     }
 
     def on_key_press(window, event):
@@ -202,7 +202,7 @@ if __name__ == '__main__':
             return
         current_min = int(vid_widget.time/60)
         current_sec = int(vid_widget.time%60)
-        current_progress = int(vid_widget.position*100)
+        current_progress = vid_widget.position
         bar = ''
         for i in range(0, int(bar_length*vid_widget.position)-1):
             bar += '='
@@ -211,16 +211,17 @@ if __name__ == '__main__':
             bar += '-'
         length_min = int(vid_widget.length/60)
         length_sec = int(vid_widget.length%60)
-        print("\r{cm:02}:{cs:02} [{bar}] {p}% {lm:02}:{ls:02} ".format(
+        # This does space padding for 4 characters ( 4) removes any decimal points (.0) and displays it as a percentage (%): "{p: 4.0%}"
+        print("\r{cm:02}:{cs:02} [{bar}] {p: 4.0%} {lm:02}:{ls:02} ".format(
                 cm=current_min, cs=current_sec,
                 bar=bar, p=current_progress,
                 lm=length_min, ls=length_sec),
             end='')
 
-    # FIXME: What other events should I hook this into?
+    # FIXME: Should I hook this to other events?
     vid.connect('paused',           update_status)
-    vid.connect('position_changed', update_status)
-    #vid.connect('time_changed',     update_status) # Only really need either time or position, not both
+    #vid.connect('position_changed', update_status) # Only really need either time or position, not both
+    vid.connect('time_changed',     update_status)
     vid.connect('media_state',      update_status)
 
     ## Once off resize when loading media
@@ -233,6 +234,6 @@ if __name__ == '__main__':
     # FIXME: Not actually resizing every time
     resize_event = vid.connect('position_changed', resize) # Gets cleared from inside the resize function
 
-    vid.connect('error',       lambda _:Gtk.main_quit()) # Quit & cleanup when VLC has an error
-    vid.connect('end_reached', lambda _:Gtk.main_quit()) # Quit & cleanup when finished media file
+    vid.connect('error',        lambda _:Gtk.main_quit()) # Quit & cleanup when VLC has an error
+    vid.connect('end_reached',  lambda _:Gtk.main_quit()) # Quit & cleanup when finished media file
     Gtk.main()
