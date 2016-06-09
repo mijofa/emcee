@@ -21,7 +21,7 @@ class VLCWidget(Gtk.DrawingArea):
                     'playing':          (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
                     'media_state':      (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
                     'error':            (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
-                    'started':            (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
+                    'loaded':           (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
                    }
 
     # Initialise state variables
@@ -46,10 +46,6 @@ class VLCWidget(Gtk.DrawingArea):
 
         # Set up hooks to the VLC event manager to trigger some Python functions
         ## FIXME: Should these all be changed to emit GObject signals?
-        #
-        # This is all the possible EventType's that can be triggered on, they aren't all from the MediaPlayer object, some come from other VLC objects only
-        #
-        # ['MediaDiscovererEnded', 'MediaDiscovererStarted', 'MediaDurationChanged', 'MediaFreed', 'MediaListEndReached', 'MediaListItemAdded', 'MediaListItemDeleted', 'MediaListPlayerNextItemSet', 'MediaListPlayerPlayed', 'MediaListPlayerStopped', 'MediaListViewItemAdded', 'MediaListViewItemDeleted', 'MediaListViewWillAddItem', 'MediaListViewWillDeleteItem', 'MediaListWillAddItem', 'MediaListWillDeleteItem', 'MediaMetaChanged', 'MediaParsedChanged', 'MediaPlayerAudioDevice', 'MediaPlayerAudioVolume', 'MediaPlayerBackward', 'MediaPlayerBuffering', 'MediaPlayerChapterChanged', 'MediaPlayerCorked', 'MediaPlayerESAdded', 'MediaPlayerESDeleted', 'MediaPlayerESSelected', 'MediaPlayerEncounteredError', 'MediaPlayerEndReached', 'MediaPlayerForward', 'MediaPlayerLengthChanged', 'MediaPlayerMediaChanged', 'MediaPlayerMuted', 'MediaPlayerNothingSpecial', 'MediaPlayerOpening', 'MediaPlayerPausableChanged', 'MediaPlayerPaused', 'MediaPlayerPlaying', 'MediaPlayerPositionChanged', 'MediaPlayerScrambledChanged', 'MediaPlayerSeekableChanged', 'MediaPlayerSnapshotTaken', 'MediaPlayerStopped', 'MediaPlayerTimeChanged', 'MediaPlayerTitleChanged', 'MediaPlayerUncorked', 'MediaPlayerUnmuted', 'MediaPlayerVout', 'MediaStateChanged', 'MediaSubItemAdded', 'MediaSubItemTreeAdded', 'VlmMediaAdded', 'VlmMediaChanged', 'VlmMediaInstanceStarted', 'VlmMediaInstanceStatusEnd', 'VlmMediaInstanceStatusError', 'VlmMediaInstanceStatusInit', 'VlmMediaInstanceStatusOpening', 'VlmMediaInstanceStatusPause', 'VlmMediaInstanceStatusPlaying', 'VlmMediaInstanceStopped', 'VlmMediaRemoved']
 
         self.event_manager = self.player.event_manager()
         self.event_manager.event_attach(vlc.EventType.MediaPlayerLengthChanged, self._on_length)             # Should really only trigger when loading new media
@@ -98,7 +94,7 @@ class VLCWidget(Gtk.DrawingArea):
             media = self.instance.media_new(uri)
 
         media_em = media.event_manager()
-        media_em.event_attach(vlc.EventType.MediaStateChanged, self._on_state_change)
+        media_em.event_attach(vlc.EventType.MediaStateChanged,   self._on_state_change)
         media_em.event_attach(vlc.EventType.MediaParsedChanged,  self._on_parsed)
 
         self.player.set_media(media)
@@ -124,8 +120,14 @@ class VLCWidget(Gtk.DrawingArea):
                 self.subtitles[-1] = 'Disabled' ## FIXME: I believe I've seen things other than '-1' used to disable subtitles, should they be normalised?
                 ## FIXME: Might need to do some ugly teletext handling stuff
 
-            ##FIXME: Process audio tracks, and other such things as well.
-            self.emit('started')
+            if 0 == self.player.audio_get_track_count():
+                self.audio_tracks = {-1: 'No audio tracks found'}
+            else:
+                self.audio_tracks  = dict(self.player.audio_get_track_description())
+                self.audio_tracks[-1] = 'Disabled' ## FIXME: Should this "track" be removed in favour of mute/unmute
+
+            ##FIXME: Is there more things to process here? Multiple video tracks?
+            self.emit('loaded')
 
     def play(self, uri=None, local=True):
         """Unpause if currently paused, or load new media if uri is set"""
@@ -204,6 +206,62 @@ class VLCWidget(Gtk.DrawingArea):
 
         return self.set_subtitles(index)
 
+    def get_current_audio_track(self):
+        """Get name of current audio track"""
+        return self.audio_tracks[self.player.audio_get_track()]
+
+    def get_audio_tracks(self):
+        """Get name of all audio tracks"""
+        print(self.audio_tracks)
+        return list(self.audio_tracks.values())
+
+    def set_audio_track(self, index):
+        """Set current audio track, index is based on the order from get_audio_tracks()"""
+        if index == -1:
+            # Just turn audio off
+            ## FIXME: should be done with mute/unmute instead
+            self.player.audio_set_track(-1)
+            return 'Disabled'
+
+        if len(self.audio_tracks) == 0:
+            return 'No audio tracks found'
+        elif len(self.audio_tracks) > index:
+            # VLC needs the track ID, but I just want to deal with an index from a list of just the audio tracks.
+            # Python3 dict.keys() doesn't support indexing, so converting it to a standard list.
+            self.player.audio_set_track(list(self.audio_tracks.keys())[index])
+            return self.get_current_audio_track()
+        else:
+            return 'Audio track {} not found'.format(index)
+
+    def increment_audio_track(self, inc=1):
+        """Increment through audio tracks in the order they come from get_audio_tracks()"""
+        if len(self.audio_tracks) == 0:
+            return 'No audio_tracks found'
+
+        # Find the current index and compare with the increment.
+        index = list(self.audio_tracks.keys()).index(self.player.audio_get_track())
+        index += inc
+        index = index%len(self.audio_tracks) # In case it's above the max or below 0
+
+        return self.set_audio_track(index)
+
+    def get_volume(self):
+        """Get the current volume as a percentage"""
+        ## FIXME: It is possible to go above 100%, how should we handle that?
+        ## FIXME: I wanted this to be queried as a variable (self.volume) that updates only when changed, but there's no VLC event to hook for volume changes
+        return self.player.audio_get_volume()/100
+
+    def set_volume(self, value):
+        """Set the volume to a specific percentage"""
+        self.player.audio_set_volume(int(value*100))
+        return self.get_volume()
+
+    def increment_volume(self, inc):
+        """Increment volume by a percentage of the total"""
+        value = self.get_volume()+inc
+        self.set_volume(value)
+
+        return self.get_volume()
 
 if __name__ == '__main__':
     window = Gtk.Window(title='Emcee')
@@ -226,6 +284,9 @@ if __name__ == '__main__':
         'p':            lambda: vid.play(sys.argv[1]),
         'Escape':       Gtk.main_quit,
         's':            lambda: print(vid.increment_subtitles()),
+        'a':            lambda: print(vid.increment_audio_track()),
+        'Up':           lambda: vid.increment_volume(+0.02),
+        'Down':         lambda: vid.increment_volume(-0.02),
     }
 
     def on_key_press(window, event):
@@ -246,7 +307,6 @@ if __name__ == '__main__':
             return
         current_min = int(vid_widget.time/60)
         current_sec = int(vid_widget.time%60)
-        current_progress = vid_widget.position
         bar = ''
         for i in range(0, int(bar_length*vid_widget.position)-1):
             bar += '='
@@ -255,11 +315,12 @@ if __name__ == '__main__':
             bar += '-'
         length_min = int(vid_widget.length/60)
         length_sec = int(vid_widget.length%60)
-        # This does space padding for 4 characters ( 4) removes any decimal points (.0) and displays it as a percentage (%): "{p: 4.0%}"
-        print("\r{cm:02}:{cs:02} [{bar}] {p: 4.0%} {lm:02}:{ls:02} ".format(
+        # This does space padding for 4 characters (4) removes any decimal points (.0) and displays it as a percentage (%): "{p:4.0%}"
+        print("\r{cm:02}:{cs:02} [{bar}] {p:4.0%} {lm:02}:{ls:02} V: {v:4.0%} ".format(
                 cm=current_min, cs=current_sec,
-                bar=bar, p=current_progress,
-                lm=length_min, ls=length_sec),
+                bar=bar, p=vid_widget.position,
+                lm=length_min, ls=length_sec,
+                v=vid_widget.get_volume()),
             end='')
 
     # FIXME: Should I hook this to other events?
@@ -274,7 +335,7 @@ if __name__ == '__main__':
         if size != (0,0):
             window.resize(*size)
 
-    vid.connect('started',      resize)
+    vid.connect('loaded',       resize)
 
     vid.connect('error',        lambda _:Gtk.main_quit()) # Quit & cleanup when VLC has an error
     vid.connect('end_reached',  lambda _:Gtk.main_quit()) # Quit & cleanup when finished media file
