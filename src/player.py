@@ -38,7 +38,9 @@ class VLCWidget(Gtk.DrawingArea):
         self.override_background_color(0, Gdk.RGBA(red=0,green=0,blue=0)) # Fill it with black
 
         # Create the VLC instance, and tell it how to inject itself into the DrawingArea widget.
-        self.instance = vlc.Instance()
+        ## FIXME: Disabling XLib disables the VDPAU video output, which lets VLC use GPU rendering.
+        ##        XLib doesn't work unless the owner of the X window enables threading correctly, python's gi library does not.
+        self.instance = vlc.Instance("--no-xlib")
         self.player = self.instance.media_player_new()
 
         ## FIXME: Can self.player.video_set_callbacks be used to inject frames into the widget instead of this?
@@ -248,7 +250,7 @@ class VLCWidget(Gtk.DrawingArea):
     def get_volume(self):
         """Get the current volume as a percentage"""
         ## FIXME: It is possible to go above 100%, how should we handle that?
-        ## FIXME: I wanted this to be queried as a variable (self.volume) that updates only when changed, but there's no VLC event to hook for volume changes
+        ## FIXME: I wanted this to be queried as a variable (self.volume) that updates only when changed, similar to self.time and self.position, but there's no VLC event to hook for volume changes
         return self.player.audio_get_volume()/100
 
     def set_volume(self, value):
@@ -329,7 +331,7 @@ if __name__ == '__main__':
     vid.connect('time_changed',     update_status)
     vid.connect('media_state',      update_status)
 
-    ## Once off resize when loading media
+    ## Resize when media is finished loading (don't know the resolution before that)
     def resize(vid_widget):
         size = vid_widget.player.video_get_size()
         if size != (0,0):
