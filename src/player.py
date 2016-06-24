@@ -186,7 +186,7 @@ class VLCWidget(Gtk.DrawingArea):
             self.player.video_set_spu(-1)
             return 'Disabled'
 
-        if len(self.subtitles) == 0:
+        if len(self.subtitles) == 1 and -1 in self.subtitles:
             return 'No subtitles found'
         elif len(self.subtitles) > index:
             # VLC needs the track ID, but I just want to deal with an index from a list of just the subtitles tracks.
@@ -198,7 +198,7 @@ class VLCWidget(Gtk.DrawingArea):
 
     def increment_subtitles(self, inc=1):
         """Increment through subsitles in the order they come from get_subtitles()"""
-        if len(self.subtitles) == 0:
+        if len(self.subtitles) == 1 and -1 in self.subtitles:
             return 'No subtitles found'
 
         # Find the current index and compare with the increment.
@@ -225,7 +225,7 @@ class VLCWidget(Gtk.DrawingArea):
             self.player.audio_set_track(-1)
             return 'Disabled'
 
-        if len(self.audio_tracks) == 0:
+        if len(self.audio_tracks) == 1 and -1 in self.audio_tracks:
             return 'No audio tracks found'
         elif len(self.audio_tracks) > index:
             # VLC needs the track ID, but I just want to deal with an index from a list of just the audio tracks.
@@ -237,7 +237,7 @@ class VLCWidget(Gtk.DrawingArea):
 
     def increment_audio_track(self, inc=1):
         """Increment through audio tracks in the order they come from get_audio_tracks()"""
-        if len(self.audio_tracks) == 0:
+        if len(self.audio_tracks) == 1 and -1 in self.audio_tracks:
             return 'No audio_tracks found'
 
         # Find the current index and compare with the increment.
