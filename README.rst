@@ -62,8 +62,8 @@ Home
 
 Problems we've had with UPMC
 ============================
-Every event loop has all the keys redefined making it near impossible to remap keys and such without missing something.
-We can't do real fullscreen because then you can't minimise UPMC to multi-task while listening to music, but borderless window the size of the screen doesn't work either because XFCE in Jessie doesn't let it above the panel unless it's in always-on-top mode. Current workaround is to force itself into always-on-top mode, this is ugly.
-Users tend to use the mouse even though there is no visible mouse-pointer and mouse usage is completely undocumented.
-Users don't like needing to go out of the stream, back to the menu to pick a new channel, next/prev channel buttons made them happy.
-AOSD is horrible, it's also not actually available in the Jessie repo.
+* Every event loop has all the keys redefined making it near impossible to remap keys and such without missing something.
+* We can't do real fullscreen because then you can't minimise UPMC to multi-task while listening to music, but borderless window the size of the screen doesn't work either because XFCE in Jessie doesn't let it above the panel unless it's in always-on-top mode. Current workaround is to force itself into always-on-top mode, this is ugly.
+* Users tend to use the mouse even though there is no visible mouse-pointer and mouse usage is completely undocumented.
+* Users don't like needing to go out of the stream, back to the menu to pick a new channel, next/prev channel buttons made them happy.
+* AOSD is horrible, it's also not actually available in the Jessie repo.
