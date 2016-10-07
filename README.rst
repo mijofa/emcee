@@ -13,6 +13,10 @@ User interface
 * MUST be navigable entirely by arrows, enter, & back buttons
 * MAY have a tile/grid layout
 * MUST display posters/icons
+* SHOULD support alpha-channel transparency of poster/icon images
+  UPMC doesn't work with with PNG transparency due to PyGame not supporting partial transparency.
+
+* SHOULD support vector graphic images such as SVG for post/icon image files
 * MUST have support for categories
 * SHOULD have support for subcategories
 * The [sub]category icons SHOULD be visibly distinct from the channel/file icons
