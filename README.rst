@@ -1,6 +1,6 @@
 Emcee
 =====
-Emcee is mean to be a successor to UPMC, because UPMC has many problems and it's too hard to fix without just starting again.
+Emcee is meant to be a successor to UPMC, because UPMC has many problems and it's too hard to fix without just starting again.
 The purpose of Emcee is to be used for watching streaming TV, as well as on-demand video files on both a dedicated media machine with nothing but an IR remote for input, as well as on standard desktops that will have keyboard, & mouse. Consequently it needs to have a UI that can be used easily both from a distance (across the room) and close up.
 
 Functional requirements
