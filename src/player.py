@@ -22,6 +22,7 @@ class VLCWidget(Gtk.DrawingArea):
                     'media_state':      (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
                     'error':            (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
                     'loaded':           (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
+                    'initialised':      (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
                    }
 
     # Initialise state variables
@@ -40,11 +41,17 @@ class VLCWidget(Gtk.DrawingArea):
         # Create the VLC instance, and tell it how to inject itself into the DrawingArea widget.
         ## FIXME: Disabling XLib disables the VDPAU video output, which lets VLC use GPU rendering.
         ##        XLib doesn't work unless the owner of the X window enables threading correctly, python's gi library does not.
-        self.instance = vlc.Instance("--no-xlib")
-        self.player = self.instance.media_player_new()
+#        self.instance = vlc.Instance("--no-xlib")
+#        self.player = self.instance.media_player_new()
 
         ## FIXME: Can self.player.video_set_callbacks be used to inject frames into the widget instead of this?
-        self.connect("map", lambda _: self.player.set_xwindow(self.get_property('window').get_xid()))
+        self.connect("realize", self._realize)
+
+    def _realize(self, widget, data=None):
+        self.instance = vlc.Instance("--no-xlib")
+        self.player = self.instance.media_player_new()
+        win_id = widget.get_window().get_xid()
+        self.player.set_xwindow(win_id)
 
         # Set up hooks to the VLC event manager to trigger some Python functions
         ## FIXME: Should these all be changed to emit GObject signals?
@@ -59,6 +66,8 @@ class VLCWidget(Gtk.DrawingArea):
         self.event_manager.event_attach(vlc.EventType.MediaPlayerEndReached, lambda _:self.emit('end_reached'))
 
         self.event_manager.event_attach(vlc.EventType.MediaPlayerEncounteredError, lambda _:self.emit('error'))
+
+        self.emit('initialised')
 
     def _on_length(self, event):
         self.length = event.u.new_length/1000
@@ -77,6 +86,9 @@ class VLCWidget(Gtk.DrawingArea):
 
     def _load_media(self, uri, local=True):
         """Load a new media file/stream, and whatever else is involved therein"""
+
+        if not self.instance:
+            self.connect('initialised', lambda: self._load_media(uri=uri, local=local))
 
         ##FIXME: Handle loading of subtitles as well
         ##       If a .srt or similar is placed with the media file, load that and turn them on by default. (I think VLC does this automatically)
@@ -270,9 +282,36 @@ if __name__ == '__main__':
     window.connect("destroy", lambda q: Gtk.main_quit()) # Quit & cleanup when closed
     window.show()
 
+    overlay = Gtk.Overlay()
+    window.add(overlay)
+
     vid = VLCWidget()
-    window.add(vid)
+    overlay.add(vid)
+    overlay.set_property("opacity", 0.1)
     vid.play(sys.argv[1])
+
+    ## OSD
+    play_image = Gtk.Image.new_from_icon_name(
+           "gtk-media-play",
+           Gtk.IconSize.MENU
+    )
+    pause_image = Gtk.Image.new_from_icon_name(
+            "gtk-media-pause",
+            Gtk.IconSize.MENU
+    )
+    playpause_button = Gtk.Button()
+    playpause_button.set_image(play_image)
+    playpause_button.connect('clicked', lambda _: vid.toggle_pause())
+    vid.connect('paused',  lambda _: playpause_button.set_image(play_image))
+    vid.connect('playing', lambda _: playpause_button.set_image(pause_image))
+    playpause_button.set_property('opacity', 0.5)
+    playpause_button.set_valign(Gtk.Align.CENTER)
+    playpause_button.set_halign(Gtk.Align.CENTER)
+    overlay.add_overlay(playpause_button)
+    overlay.set_property('opacity', 0.5)
+
+    overlay.show_all()
+    window.show_all()
 
     ## Keyboard input setup
     keybindings = {
