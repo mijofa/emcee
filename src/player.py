@@ -51,6 +51,7 @@ class VLCWidget(Gtk.DrawingArea):
     length = 0
     paused = True
     state = 'NothingSpecial' # This string is copied from VLC's default state
+    instance = None
 
     def emit(self, *args, **kwargs):
         debug('VLCWidget emitting', *args)
@@ -141,6 +142,7 @@ class VLCWidget(Gtk.DrawingArea):
         media_em.event_attach(vlc.EventType.MediaParsedChanged,  self._on_parsed)
 
         self.player.set_media(media)
+        self.player.play()
 
     def _on_state_change(self, event):
         # All possible states at time of writing --Mike June 2016
@@ -177,9 +179,8 @@ class VLCWidget(Gtk.DrawingArea):
 
         if uri:
             self._load_media(uri, local=local)
-            self.show_all()
-
-        return self.player.play()
+        else:
+            return self.player.play()
 
     def stop(self):
         """Stop all playback, and hide the player"""
@@ -332,13 +333,14 @@ if __name__ == '__main__':
     playpause_button = Gtk.Button()
     playpause_button.set_image(play_image)
     playpause_button.connect('clicked', lambda _: vid.toggle_pause())
-    vid.connect('paused',  lambda _: playpause_button.set_image(play_image))
-    vid.connect('playing', lambda _: playpause_button.set_image(pause_image))
-    playpause_button.set_property('opacity', 0.5)
+    def f(new_image):
+        GObject.idle_add(lambda: playpause_button.set_image(new_image))
+    vid.connect('paused',  lambda _: f(play_image))
+    vid.connect('playing', lambda _: f(pause_image))
+    # FIXME: Make the button partially transparent
     playpause_button.set_valign(Gtk.Align.CENTER)
     playpause_button.set_halign(Gtk.Align.CENTER)
     overlay.add_overlay(playpause_button)
-    overlay.set_property('opacity', 0.5)
 
     window.add(overlay)
     overlay.show_all()
@@ -360,6 +362,9 @@ if __name__ == '__main__':
         'a':            lambda: print(vid.increment_audio_track()),
         'Up':           lambda: vid.increment_volume(+0.02),
         'Down':         lambda: vid.increment_volume(-0.02),
+        'Page_Up':      lambda: vid.seek(-300), # 5 minutes back
+        'Page_Down':    lambda: vid.seek(+300), # 5 minutes forward
+        'Home':         lambda: vid.set_time(0), # Jump to beginning
     }
 
     def on_key_press(window, event):
@@ -410,7 +415,22 @@ if __name__ == '__main__':
     def resize(vid_widget):
         size = vid_widget.player.video_get_size()
         if size != (0,0):
-            window.resize(*size)
+            # FIXME: Sometimes crashes with this error, if this resize line is
+            # removed it just segfaults without error. I suspect the resize
+            # isn't adding to the crash at all, and this output is just the
+            # resize failing after it crashes, but I don't understand the crash
+            # yet
+            #
+            # (player.py:14508): Pango-CRITICAL **: pango_context_get_matrix: assertion 'PANGO_IS_CONTEXT (context)' failed
+            # src/player.py:403: Warning: g_object_get_qdata: assertion 'G_IS_OBJECT (object)' failed
+            #   Gtk.main()
+            # (player.py:14508): Pango-CRITICAL **: pango_context_get_matrix: assertion 'PANGO_IS_CONTEXT (context)' failed
+            # src/player.py:403: Warning: g_object_replace_qdata: assertion 'G_IS_OBJECT (object)' failed
+            #   Gtk.main()
+            #
+            # UPDATE: Adding idle_add both here, and to the playpause_button.set_image calls above seems to have reduced this crash significantly.
+            #    Do I need to use idle_add for all GTK calls?
+            GObject.idle_add(lambda: window.resize(*size))
 
     vid.connect('loaded',       resize)
 
