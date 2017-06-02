@@ -9,10 +9,12 @@ import ctypes
 x11 = ctypes.cdll.LoadLibrary('libX11.so.6')
 ret = x11.XInitThreads()
 if ret == 0:
-    print('WARNING: X11 could not be initialised for threading, VLC performance will be signifcantly reduced',file=sys.stderr)
+    print('WARNING: X11 could not be initialised for threading, VLC performance will be signifcantly reduced', file=sys.stderr)
 
 from gi.repository import Gtk, Gdk, GObject
-from gi.repository import GdkX11 # needed for get_xid() even though it's never actually mentioned
+# Without GdkX11 being imported GTK widgets don't get the get_xid() function,
+# so even though this widget is never directly called we still need to import it.
+from gi.repository import GdkX11  # noqa: F401
 
 # Make VLC's threading play nicely with GObject's
 # Must be done before importing VLC
@@ -22,45 +24,50 @@ GObject.threads_init()
 # https://www.olivieraubert.net/vlc/python-ctypes/
 import vlc
 
+
 # FIXME: Make this triggerable via a command-line flag
-debugging_enabled = False # Avoid committing this as True
+debugging_enabled = False  # Avoid committing this as True
+
+
 def debug(*args):
     if debugging_enabled:
         print('DEBUGING:', *args,
-            file=sys.stderr)
+              file=sys.stderr)
+
 
 class VLCWidget(Gtk.DrawingArea):
     # These are the event signals that can be triggered by this widget
     # FIXME: I suspect I'm using GTK's signals wrongly, and am supposed to use them to call things interal to the widget, not just to signal when the widget has done things.
     #    eg, load_thing() should not emit('loaded') but rather emit('load_thing') should trigger do_load_thing()
     __gsignals__ = {
-                    'end_reached':      (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
-                    'time_changed':     (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
-                    'position_changed': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
-                    'paused':           (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
-                    'playing':          (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
-                    'media_state':      (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
-                    'error':            (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
-                    'loaded':           (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
-                    'initialised':      (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
-                   }
+        'end_reached':      (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
+        'time_changed':     (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
+        'position_changed': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
+        'paused':           (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
+        'playing':          (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
+        'media_state':      (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
+        'error':            (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
+        'loaded':           (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
+        'initialised':      (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
+    }
 
     # Initialise state variables
     time = 0
     position = 0
     length = 0
     paused = True
-    state = 'NothingSpecial' # This string is copied from VLC's default state
+    state = 'NothingSpecial'  # This string is copied from VLC's default state
     instance = None
 
     def emit(self, *args, **kwargs):
         debug('VLCWidget emitting', *args)
         super(VLCWidget, self).emit(*args, **kwargs)
+
     def __init__(self, *args):
 
         # Initialise the DrawingArea
         super(VLCWidget, self).__init__(*args)
-        self.override_background_color(0, Gdk.RGBA(red=0,green=0,blue=0)) # Fill it with black
+        self.override_background_color(0, Gdk.RGBA(red=0,green=0,blue=0))  # Fill it with black
 
         # Create the VLC instance, and tell it how to inject itself into the DrawingArea widget.
         ## FIXME: Disabling XLib disables the VDPAU video output, which lets VLC use GPU rendering.
@@ -82,33 +89,39 @@ class VLCWidget(Gtk.DrawingArea):
         ## FIXME: Should these all be changed to emit GObject signals?
 
         self.event_manager = self.player.event_manager()
-        self.event_manager.event_attach(vlc.EventType.MediaPlayerLengthChanged, self._on_length)             # Should really only trigger when loading new media
-        self.event_manager.event_attach(vlc.EventType.MediaPlayerPaused, self._on_paused)                    #
-        self.event_manager.event_attach(vlc.EventType.MediaPlayerPlaying, self._on_playing)                  #
-        self.event_manager.event_attach(vlc.EventType.MediaPlayerTimeChanged, self._on_time_changed)         # Current position in milliseconds
-        self.event_manager.event_attach(vlc.EventType.MediaPlayerPositionChanged, self._on_position_changed) # Current position in percentage of total
-        #self.event_manager.event_attach(vlc.EventType.MediaPlayerTitleChanged, self._on_title_changed)      # FIXME: Doesn't trigger, might be that my test file is insufficient
+        self.event_manager.event_attach(vlc.EventType.MediaPlayerLengthChanged, self._on_length)              # Should really only trigger when loading new media
+        self.event_manager.event_attach(vlc.EventType.MediaPlayerPaused, self._on_paused)                     #
+        self.event_manager.event_attach(vlc.EventType.MediaPlayerPlaying, self._on_playing)                   #
+        self.event_manager.event_attach(vlc.EventType.MediaPlayerTimeChanged, self._on_time_changed)          # Current position in milliseconds
+        self.event_manager.event_attach(vlc.EventType.MediaPlayerPositionChanged, self._on_position_changed)  # Current position in percentage of total
+         #self.event_manager.event_attach(vlc.EventType.MediaPlayerTitleChanged, self._on_title_changed)      # FIXME: Doesn't trigger, might be that my test file is insufficient
         self.event_manager.event_attach(vlc.EventType.MediaPlayerEndReached, lambda _:self.emit('end_reached'))
 
         self.event_manager.event_attach(vlc.EventType.MediaPlayerEncounteredError, lambda _:self.emit('error'))
 
         self.emit('initialised')
 
+    ## event_manager hooks ##
     def _on_length(self, event):
-        self.length = event.u.new_length/1000
+        self.length = event.u.new_length / 1000
+
     def _on_paused(self, event):
         self.paused = True
         self.emit('paused')
+
     def _on_playing(self, event):
         self.paused = False
         self.emit('playing')
+
     def _on_time_changed(self, event):
-        self.time = event.u.new_time/1000
+        self.time = event.u.new_time / 1000
         self.emit('time_changed')
+
     def _on_position_changed(self, event):
         self.position = event.u.new_position
         self.emit('position_changed')
 
+    ## Internally used functions ##
     def _load_media(self, uri, local=True):
         """Load a new media file/stream, and whatever else is involved therein"""
 
@@ -154,6 +167,7 @@ class VLCWidget(Gtk.DrawingArea):
         self.state = vlc.State._enum_names_[event.u.new_state]
 
         self.emit('media_state')
+
     def _on_parsed(self, event):
         """Handle once-off reading of media metadata"""
         # This function triggers when parsed state changes not just when it's parsed, so check that it is currently parsed
@@ -162,18 +176,19 @@ class VLCWidget(Gtk.DrawingArea):
                 self.subtitles = {-1: 'No subtitles found'}
             else:
                 self.subtitles = dict(self.player.video_get_spu_description())
-                self.subtitles[-1] = 'Disabled' ## FIXME: I believe I've seen things other than '-1' used to disable subtitles, should they be normalised?
-                ## FIXME: Might need to do some ugly teletext handling stuff
+                self.subtitles[-1] = 'Disabled'  # FIXME: I believe I've seen things other than '-1' used to disable subtitles, should they be normalised?
+                # FIXME: Might need to do some ugly teletext handling stuff
 
             if 0 == self.player.audio_get_track_count():
                 self.audio_tracks = {-1: 'No audio tracks found'}
             else:
-                self.audio_tracks  = dict(self.player.audio_get_track_description())
-                self.audio_tracks[-1] = 'Disabled' ## FIXME: Should this "track" be removed in favour of mute/unmute
+                self.audio_tracks = dict(self.player.audio_get_track_description())
+                self.audio_tracks[-1] = 'Disabled'  # FIXME: Should this "track" be removed in favour of mute/unmute
 
-            ##FIXME: Is there more things to process here? Multiple video tracks?
+            # FIXME: Is there more things to process here? Multiple video tracks?
             self.emit('loaded')
 
+    ## Playback control functions ##
     def play(self, uri=None, local=True):
         """Unpause if currently paused, or load new media if uri is set"""
 
@@ -200,18 +215,18 @@ class VLCWidget(Gtk.DrawingArea):
     def set_time(self, seconds):
         """Jump to certain point in the media, unlike seek() this deals with absolute time."""
 
-        milliseconds = int(seconds*1000) # VLC's logic deals with milliseconds
+        milliseconds = int(seconds * 1000)  # VLC's logic deals with milliseconds
 
         ##FIXME: Add logic to avoid going past the beginning or end of the media?
         if self.player.is_seekable():
             self.player.set_time(milliseconds)
 
-        return int(self.player.get_time()/1000)
+        return int(self.player.get_time() / 1000)
 
     def seek(self, seconds):
         """Jump forward or back in the media, unlike set_time() this deals with relative time.."""
 
-        return self.set_time(self.time+seconds)
+        return self.set_time(self.time + seconds)
 
     def get_current_subtitles(self):
         """Get name of current subtitles track"""
@@ -246,7 +261,7 @@ class VLCWidget(Gtk.DrawingArea):
         # Find the current index and compare with the increment.
         index = list(self.subtitles.keys()).index(self.player.video_get_spu())
         index += inc
-        index = index%len(self.subtitles) # In case it's above the max or below 0
+        index = index % len(self.subtitles)  # In case it's above the max or below 0
 
         return self.set_subtitles(index)
 
@@ -285,7 +300,7 @@ class VLCWidget(Gtk.DrawingArea):
         # Find the current index and compare with the increment.
         index = list(self.audio_tracks.keys()).index(self.player.audio_get_track())
         index += inc
-        index = index%len(self.audio_tracks) # In case it's above the max or below 0
+        index = index % len(self.audio_tracks)  # In case it's above the max or below 0
 
         return self.set_audio_track(index)
 
@@ -293,23 +308,26 @@ class VLCWidget(Gtk.DrawingArea):
         """Get the current volume as a percentage"""
         ## FIXME: It is possible to go above 100%, how should we handle that?
         ## FIXME: I wanted this to be queried as a variable (self.volume) that updates only when changed, similar to self.time and self.position, but there's no VLC event to hook for volume changes
-        return self.player.audio_get_volume()/100
+        return self.player.audio_get_volume() / 100
 
     def set_volume(self, value):
         """Set the volume to a specific percentage"""
-        self.player.audio_set_volume(int(value*100))
+        self.player.audio_set_volume(int(value * 100))
         return self.get_volume()
 
     def increment_volume(self, inc):
         """Increment volume by a percentage of the total"""
-        value = self.get_volume()+inc
+        value = self.get_volume() + inc
         self.set_volume(value)
 
         return self.get_volume()
 
-if __name__ == '__main__':
+
+def main(*args):
+    media_uri = args[0]
+
     window = Gtk.Window(title='Emcee')
-    window.connect("destroy", lambda q: Gtk.main_quit()) # Quit & cleanup when closed
+    window.connect("destroy", lambda q: Gtk.main_quit())  # Quit & cleanup when closed
     window.show()
 
     overlay = Gtk.Overlay()
@@ -318,24 +336,26 @@ if __name__ == '__main__':
     debug('vid created')
     overlay.add(vid)
     debug('vid added to overlay')
-    vid.play(sys.argv[1])
-    debug('vid.play', sys.argv[1])
+    vid.play(media_uri)
+    debug('vid.play', media_uri)
 
     ## OSD
     play_image = Gtk.Image.new_from_icon_name(
-           "gtk-media-play",
-           Gtk.IconSize.MENU
+        "gtk-media-play",
+        Gtk.IconSize.MENU
     )
     pause_image = Gtk.Image.new_from_icon_name(
-            "gtk-media-pause",
-            Gtk.IconSize.MENU
+        "gtk-media-pause",
+        Gtk.IconSize.MENU
     )
     playpause_button = Gtk.Button()
     playpause_button.set_image(play_image)
     playpause_button.connect('clicked', lambda _: vid.toggle_pause())
+
     def f(new_image):
         GObject.idle_add(lambda: playpause_button.set_image(new_image))
-    vid.connect('paused',  lambda _: f(play_image))
+
+    vid.connect('paused', lambda _: f(play_image))
     vid.connect('playing', lambda _: f(pause_image))
     # FIXME: Make the button partially transparent
     playpause_button.set_valign(Gtk.Align.CENTER)
@@ -350,21 +370,21 @@ if __name__ == '__main__':
     ## Keyboard input setup
     keybindings = {
         'space':        vid.toggle_pause,
-        'Left':         lambda: vid.seek(-20), # 20 seconds back
-        'Right':        lambda: vid.seek(+30), # 30 seconds forward
+        'Left':         lambda: vid.seek(-20),  # 20 seconds back
+        'Right':        lambda: vid.seek(+30),  # 30 seconds forward
         'F':            window.fullscreen,
         'f':            window.unfullscreen,
         'BackSpace':    vid.stop,
         'i':            lambda: print(vid.get_subtitles()),
-        'p':            lambda: vid.play(sys.argv[1]),
+        'p':            lambda: vid.play(media_uri),
         'Escape':       Gtk.main_quit,
         's':            lambda: print(vid.increment_subtitles()),
         'a':            lambda: print(vid.increment_audio_track()),
         'Up':           lambda: vid.increment_volume(+0.02),
         'Down':         lambda: vid.increment_volume(-0.02),
-        'Page_Up':      lambda: vid.seek(-300), # 5 minutes back
-        'Page_Down':    lambda: vid.seek(+300), # 5 minutes forward
-        'Home':         lambda: vid.set_time(0), # Jump to beginning
+        'Page_Up':      lambda: vid.seek(-300),  # 5 minutes back
+        'Page_Down':    lambda: vid.seek(+300),  # 5 minutes forward
+        'Home':         lambda: vid.set_time(0),  # Jump to beginning
     }
 
     def on_key_press(window, event):
@@ -378,7 +398,8 @@ if __name__ == '__main__':
     window.connect("key_press_event", on_key_press)
 
     ## CLI output, showing current position and state
-    bar_length = 40 # FIXME: Somehow detect width of terminal and set this accordingly
+    bar_length = 40  # FIXME: Somehow detect width of terminal and set this accordingly
+
     def update_status(vid_widget):
         """Make a fancy looking progressbar with numbers for how far into the current movie you are"""
         if vid_widget.state == 'Opening':
@@ -386,18 +407,19 @@ if __name__ == '__main__':
         elif vid_widget.state not in ('Playing', 'Paused', 'Ended'):
             debug('Unknown state:', vid_widget.state)
             return
-        current_min = int(vid_widget.time/60)
-        current_sec = int(vid_widget.time%60)
+        current_min = int(vid_widget.time / 60)
+        current_sec = int(vid_widget.time % 60)
         bar = ''
-        for i in range(0, int(bar_length*vid_widget.position)-1):
+        for i in range(0, int(bar_length * vid_widget.position) - 1):
             bar += '='
         bar += '||' if vid_widget.paused else '|>'
-        for i in range(len(bar)-1, bar_length):
+        for i in range(len(bar) - 1, bar_length):
             bar += '-'
-        length_min = int(vid_widget.length/60)
-        length_sec = int(vid_widget.length%60)
+        length_min = int(vid_widget.length / 60)
+        length_sec = int(vid_widget.length % 60)
         # This does space padding for 4 characters (4) removes any decimal points (.0) and displays it as a percentage (%): "{p:4.0%}"
-        print("\r{cm:02}:{cs:02} [{bar}] {p:4.0%} {lm:02}:{ls:02} V: {v:4.0%} ".format(
+        print(
+            "\r{cm:02}:{cs:02} [{bar}] {p:4.0%} {lm:02}:{ls:02} V: {v:4.0%} ".format(
                 cm=current_min, cs=current_sec,
                 bar=bar,
                 p=vid_widget.position,
@@ -434,6 +456,9 @@ if __name__ == '__main__':
 
     vid.connect('loaded',       resize)
 
-    vid.connect('error',        lambda _:Gtk.main_quit()) # Quit & cleanup when VLC has an error
-    vid.connect('end_reached',  lambda _:Gtk.main_quit()) # Quit & cleanup when finished media file
+    vid.connect('error',        lambda _:Gtk.main_quit())  # Quit & cleanup when VLC has an error
+    vid.connect('end_reached',  lambda _:Gtk.main_quit())  # Quit & cleanup when finished media file
     Gtk.main()
+
+if __name__ == '__main__':
+    main(*sys.argv[1:])
