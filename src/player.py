@@ -22,8 +22,17 @@ GObject.threads_init()
 # https://www.olivieraubert.net/vlc/python-ctypes/
 import vlc
 
+# FIXME: Make this triggerable via a command-line flag
+debugging_enabled = False # Avoid committing this as True
+def debug(*args):
+    if debugging_enabled:
+        print('DEBUGING:', *args,
+            file=sys.stderr)
+
 class VLCWidget(Gtk.DrawingArea):
     # These are the event signals that can be triggered by this widget
+    # FIXME: I suspect I'm using GTK's signals wrongly, and am supposed to use them to call things interal to the widget, not just to signal when the widget has done things.
+    #    eg, load_thing() should not emit('loaded') but rather emit('load_thing') should trigger do_load_thing()
     __gsignals__ = {
                     'end_reached':      (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
                     'time_changed':     (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
@@ -43,6 +52,9 @@ class VLCWidget(Gtk.DrawingArea):
     paused = True
     state = 'NothingSpecial' # This string is copied from VLC's default state
 
+    def emit(self, *args, **kwargs):
+        debug('VLCWidget emitting', *args)
+        super(VLCWidget, self).emit(*args, **kwargs)
     def __init__(self, *args):
 
         # Initialise the DrawingArea
@@ -59,6 +71,7 @@ class VLCWidget(Gtk.DrawingArea):
         self.connect("realize", self._realize)
 
     def _realize(self, widget, data=None):
+        debug('VLCWidget realizing')
         self.instance = vlc.Instance()
         self.player = self.instance.media_player_new()
         win_id = widget.get_window().get_xid()
@@ -98,8 +111,13 @@ class VLCWidget(Gtk.DrawingArea):
     def _load_media(self, uri, local=True):
         """Load a new media file/stream, and whatever else is involved therein"""
 
+        debug('VLDWidget loading media')
         if not self.instance:
-            self.connect('initialised', lambda: self._load_media(uri=uri, local=local))
+            debug('    deffered')
+            # VLC not yet initialised so can't actually load the media yet.
+            # Rerun ourselves when VLC has been initialised.
+            self.connect('initialised', lambda _: self._load_media(uri=uri, local=local))
+            return
 
         ##FIXME: Handle loading of subtitles as well
         ##       If a .srt or similar is placed with the media file, load that and turn them on by default. (I think VLC does this automatically)
@@ -294,12 +312,13 @@ if __name__ == '__main__':
     window.show()
 
     overlay = Gtk.Overlay()
-    window.add(overlay)
 
     vid = VLCWidget()
+    debug('vid created')
     overlay.add(vid)
-    overlay.set_property("opacity", 0.1)
+    debug('vid added to overlay')
     vid.play(sys.argv[1])
+    debug('vid.play', sys.argv[1])
 
     ## OSD
     play_image = Gtk.Image.new_from_icon_name(
@@ -321,8 +340,10 @@ if __name__ == '__main__':
     overlay.add_overlay(playpause_button)
     overlay.set_property('opacity', 0.5)
 
+    window.add(overlay)
     overlay.show_all()
     window.show_all()
+    debug('shown all')
 
     ## Keyboard input setup
     keybindings = {
@@ -344,9 +365,10 @@ if __name__ == '__main__':
     def on_key_press(window, event):
         keyname = Gdk.keyval_name(event.keyval)
         if keyname in keybindings.keys():
+            # Run the function or lambda stored in the keybindings dict
             keybindings[keyname]()
         else:
-            print('no keybinding found for %s' % keyname)
+            debug('no keybinding found for %s' % keyname)
 
     window.connect("key_press_event", on_key_press)
 
@@ -354,8 +376,10 @@ if __name__ == '__main__':
     bar_length = 40 # FIXME: Somehow detect width of terminal and set this accordingly
     def update_status(vid_widget):
         """Make a fancy looking progressbar with numbers for how far into the current movie you are"""
-        if vid_widget.state not in ('Playing', 'Paused', 'Ended'):
-            print('Unknown state:', vid_widget.state)
+        if vid_widget.state == 'Opening':
+            print('Loading ', vid_widget.player.get_media().get_mrl())
+        elif vid_widget.state not in ('Playing', 'Paused', 'Ended'):
+            debug('Unknown state:', vid_widget.state)
             return
         current_min = int(vid_widget.time/60)
         current_sec = int(vid_widget.time%60)
@@ -370,7 +394,8 @@ if __name__ == '__main__':
         # This does space padding for 4 characters (4) removes any decimal points (.0) and displays it as a percentage (%): "{p:4.0%}"
         print("\r{cm:02}:{cs:02} [{bar}] {p:4.0%} {lm:02}:{ls:02} V: {v:4.0%} ".format(
                 cm=current_min, cs=current_sec,
-                bar=bar, p=vid_widget.position,
+                bar=bar,
+                p=vid_widget.position,
                 lm=length_min, ls=length_sec,
                 v=vid_widget.get_volume()),
             end='')
