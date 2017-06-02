@@ -24,6 +24,7 @@ GObject.threads_init()
 # https://www.olivieraubert.net/vlc/python-ctypes/
 import vlc
 
+import osd
 
 # FIXME: Make this triggerable via a command-line flag
 debugging_enabled = False  # Avoid committing this as True
@@ -94,7 +95,7 @@ class VLCWidget(Gtk.DrawingArea):
         self.event_manager.event_attach(vlc.EventType.MediaPlayerPlaying, self._on_playing)                   #
         self.event_manager.event_attach(vlc.EventType.MediaPlayerTimeChanged, self._on_time_changed)          # Current position in milliseconds
         self.event_manager.event_attach(vlc.EventType.MediaPlayerPositionChanged, self._on_position_changed)  # Current position in percentage of total
-         #self.event_manager.event_attach(vlc.EventType.MediaPlayerTitleChanged, self._on_title_changed)      # FIXME: Doesn't trigger, might be that my test file is insufficient
+        #self.event_manager.event_attach(vlc.EventType.MediaPlayerTitleChanged, self._on_title_changed)      # FIXME: Doesn't trigger, might be that my test file is insufficient
         self.event_manager.event_attach(vlc.EventType.MediaPlayerEndReached, lambda _:self.emit('end_reached'))
 
         self.event_manager.event_attach(vlc.EventType.MediaPlayerEncounteredError, lambda _:self.emit('error'))
@@ -340,27 +341,39 @@ def main(*args):
     debug('vid.play', media_uri)
 
     ## OSD
-    play_image = Gtk.Image.new_from_icon_name(
-        "gtk-media-play",
-        Gtk.IconSize.MENU
-    )
-    pause_image = Gtk.Image.new_from_icon_name(
-        "gtk-media-pause",
-        Gtk.IconSize.MENU
-    )
-    playpause_button = Gtk.Button()
-    playpause_button.set_image(play_image)
-    playpause_button.connect('clicked', lambda _: vid.toggle_pause())
+    osd_widget = osd.OSD()
+#    textview = Gtk.TextView()
+#    ##textview.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
+#    textbuffer = textview.get_buffer()
+#    textbuffer.set_text("Welcome to the PyGObject Tutorial\n\nThis guide aims to provide an introduction to using Python and GTK+.\n\nIt includes many sample code files and exercises for building your knowledge of the language.", -1)
+#    textview.override_background_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(0, 0, 0, 0)) # Set the background to transparent
+#    textview.override_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(1, 1, 1, 1)) # Set the foreground to white
+#    osd_widget.add(textview)
 
-    def f(new_image):
-        GObject.idle_add(lambda: playpause_button.set_image(new_image))
+    overlay.set_opacity(0.5)
+    overlay.add_overlay(osd_widget)
 
-    vid.connect('paused', lambda _: f(play_image))
-    vid.connect('playing', lambda _: f(pause_image))
-    # FIXME: Make the button partially transparent
-    playpause_button.set_valign(Gtk.Align.CENTER)
-    playpause_button.set_halign(Gtk.Align.CENTER)
-    overlay.add_overlay(playpause_button)
+#    play_image = Gtk.Image.new_from_icon_name(
+#        "gtk-media-play",
+#        Gtk.IconSize.MENU
+#    )
+#    pause_image = Gtk.Image.new_from_icon_name(
+#        "gtk-media-pause",
+#        Gtk.IconSize.MENU
+#    )
+#    playpause_button = Gtk.Button()
+#    playpause_button.set_image(play_image)
+#    playpause_button.connect('clicked', lambda _: vid.toggle_pause())
+#
+#    def f(new_image):
+#        GObject.idle_add(lambda: playpause_button.set_image(new_image))
+#
+#    vid.connect('paused', lambda _: f(play_image))
+#    vid.connect('playing', lambda _: f(pause_image))
+#    # FIXME: Make the button partially transparent
+#    playpause_button.set_valign(Gtk.Align.CENTER)
+#    playpause_button.set_halign(Gtk.Align.CENTER)
+#    overlay.add_overlay(playpause_button)
 
     window.add(overlay)
     overlay.show_all()
