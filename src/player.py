@@ -1,12 +1,23 @@
 #!/usr/bin/python3
+import sys
+
+# This must be done *before* importing GTK, otherwise it will cause some unexpected segfaults
+# GTK doesn't enable X11's (Un)LockDisplay functions which allow multiple threads to safely draw to the same X window. VLC needs this functionality to do accelarated rendering.
+#
+# NOTE: This must be the first thing done with X11, as such it probably needs to be called before even importing this widget.
+import ctypes
+x11 = ctypes.cdll.LoadLibrary('libX11.so.6')
+ret = x11.XInitThreads()
+if ret == 0:
+    print('WARNING: X11 could not be initialised for threading, VLC performance will be signifcantly reduced',file=sys.stderr)
 
 from gi.repository import Gtk, Gdk, GObject
 from gi.repository import GdkX11 # needed for get_xid() even though it's never actually mentioned
 
 # Make VLC's threading play nicely with GObject's
+# Must be done before importing VLC
 GObject.threads_init()
 
-import sys
 # Make sure you get the right version of python-vlc to match your installed version of VLC, acquired from here
 # https://www.olivieraubert.net/vlc/python-ctypes/
 import vlc
@@ -48,7 +59,7 @@ class VLCWidget(Gtk.DrawingArea):
         self.connect("realize", self._realize)
 
     def _realize(self, widget, data=None):
-        self.instance = vlc.Instance("--no-xlib")
+        self.instance = vlc.Instance()
         self.player = self.instance.media_player_new()
         win_id = widget.get_window().get_xid()
         self.player.set_xwindow(win_id)
