@@ -448,6 +448,8 @@ def main(*args):
 
     ## Resize when media is finished loading (don't know the resolution before that)
     def resize(vid_widget):
+        media_title = vid_widget.player.get_media().get_meta(vlc.Meta.Title)
+        window.set_title('Emcee - {}'.format(media_title.rpartition('.')[0]))
         size = vid_widget.player.video_get_size()
         if size != (0,0):
             # FIXME: Sometimes crashes with this error, if this resize line is
@@ -469,6 +471,9 @@ def main(*args):
 
     vid.connect('loaded',       resize)
 
+    # FIXME: This doesn't cleanup VLC
+    #        Ideally GTK would have a on_quit hook of some sort where I can tell it to destroy the VLC instance and such.
+    #        My Google-fu seems to indicate that is not the case, so I may need a custom emcee.quit() function that does all of that.
     vid.connect('error',        lambda _:Gtk.main_quit())  # Quit & cleanup when VLC has an error
     vid.connect('end_reached',  lambda _:Gtk.main_quit())  # Quit & cleanup when finished media file
     Gtk.main()
