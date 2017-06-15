@@ -284,7 +284,7 @@ class VLCWidget(Gtk.DrawingArea):
 
     def get_audio_tracks(self):
         """Get name of all audio tracks"""
-        print(self.audio_tracks)
+        debug(self.audio_tracks)
         return list(self.audio_tracks.values())
 
     def set_audio_track(self, index):
@@ -337,7 +337,7 @@ class VLCWidget(Gtk.DrawingArea):
         return self.get_volume()
 
 
-def main(*args):
+def main(*args):  # noqa: C901
     media_uri = args[0]
 
     window = Gtk.Window(title='Emcee')
@@ -387,22 +387,33 @@ def main(*args):
 
     ## Keyboard input setup
     keybindings = {
+        # Volume
+        'Up': lambda: vid.increment_volume(+0.02),
+        'Down': lambda: vid.increment_volume(-0.02),
+
+        # Time manipulation
         'space': vid.toggle_pause,
         'Left': lambda: vid.seek(-20),  # 20 seconds back
         'Right': lambda: vid.seek(+30),  # 30 seconds forward
-        'F': window.fullscreen,
-        'f': window.unfullscreen,
-        'BackSpace': vid.stop,
-        'i': lambda: print(vid.get_subtitles()),
-        'p': lambda: vid.play(media_uri),
-        'Escape': Gtk.main_quit,
-        's': lambda: print(vid.increment_subtitles()),
-        'a': lambda: print(vid.increment_audio_track()),
-        'Up': lambda: vid.increment_volume(+0.02),
-        'Down': lambda: vid.increment_volume(-0.02),
         'Page_Up': lambda: vid.seek(-300),  # 5 minutes back
         'Page_Down': lambda: vid.seek(+300),  # 5 minutes forward
         'Home': lambda: vid.set_time(0),  # Jump to beginning
+        'End': lambda: vid.set_time(999999999),  # Jump to end, for testing only
+
+        'p': lambda: vid.play(media_uri),
+        'BackSpace': vid.stop,
+
+        'F': window.fullscreen,
+        'f': window.unfullscreen,
+
+        'i': osd_widget.toggle,
+
+        's': lambda: print(vid.increment_subtitles()),
+        'S': lambda: print(vid.get_subtitles()),
+        'a': lambda: print(vid.increment_audio_track()),
+        'A': lambda: print(vid.get_audio_tracks()),
+
+        'Escape': Gtk.main_quit,
     }
 
     def on_key_press(window, event):
