@@ -71,20 +71,8 @@ class VLCWidget(Gtk.DrawingArea):
         self.override_background_color(0, Gdk.RGBA(red=0,green=0,blue=0))  # Fill it with black
 
         # Create the VLC instance, and tell it how to inject itself into the DrawingArea widget.
-        ## FIXME: Disabling XLib disables the VDPAU video output, which lets VLC use GPU rendering.
-        ##        XLib doesn't work unless the owner of the X window enables threading correctly, python's gi library does not.
-#        self.instance = vlc.Instance("--no-xlib")
-#        self.player = self.instance.media_player_new()
-
-        ## FIXME: Can self.player.video_set_callbacks be used to inject frames into the widget instead of this?
-        self.connect("realize", self._realize)
-
-    def _realize(self, widget, data=None):
-        debug('VLCWidget realizing')
         self.instance = vlc.Instance()
         self.player = self.instance.media_player_new()
-        win_id = widget.get_window().get_xid()
-        self.player.set_xwindow(win_id)
 
         # Set up hooks to the VLC event manager to trigger some Python functions
         ## FIXME: Should these all be changed to emit GObject signals?
@@ -94,13 +82,29 @@ class VLCWidget(Gtk.DrawingArea):
         self.event_manager.event_attach(vlc.EventType.MediaPlayerPaused, self._on_paused)                     #
         self.event_manager.event_attach(vlc.EventType.MediaPlayerPlaying, self._on_playing)                   #
         self.event_manager.event_attach(vlc.EventType.MediaPlayerTimeChanged, self._on_time_changed)          # Current position in milliseconds
-        self.event_manager.event_attach(vlc.EventType.MediaPlayerPositionChanged, self._on_position_changed)  # Current position in percentage of total
+        self.event_manager.event_attach(vlc.EventType.MediaPlayerPositionChanged, self._on_position_changed)  # Current position in percentage of total length
         #self.event_manager.event_attach(vlc.EventType.MediaPlayerTitleChanged, self._on_title_changed)      # FIXME: Doesn't trigger, might be that my test file is insufficient
         self.event_manager.event_attach(vlc.EventType.MediaPlayerEndReached, lambda _:self.emit('end_reached'))
-
         self.event_manager.event_attach(vlc.EventType.MediaPlayerEncounteredError, lambda _:self.emit('error'))
 
+        self.connect("destroy", self._destroy)
+
+        # Some of the required initialisation doesn't actually work until the GTK widget has been realised, so we split that into a separate function.
+        self.connect("realize", self._realize)
+
+    def _realize(self, widget, data=None):
+        debug('VLCWidget realizing')
+        win_id = widget.get_window().get_xid()
+        self.player.set_xwindow(win_id)
+
         self.emit('initialised')
+
+    def _destroy(self, *args):
+        debug("VLCWidget Destroying")
+        # Stop playback and release the VLC objects for garbage collecting.
+        self.player.stop()
+        self.player.release()
+        self.instance.release()
 
     ## event_manager hooks ##
     def _on_length(self, event):
@@ -342,15 +346,7 @@ def main(*args):
 
     ## OSD
     osd_widget = osd.OSD()
-#    textview = Gtk.TextView()
-#    ##textview.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
-#    textbuffer = textview.get_buffer()
-#    textbuffer.set_text("Welcome to the PyGObject Tutorial\n\nThis guide aims to provide an introduction to using Python and GTK+.\n\nIt includes many sample code files and exercises for building your knowledge of the language.", -1)
-#    textview.override_background_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(0, 0, 0, 0)) # Set the background to transparent
-#    textview.override_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(1, 1, 1, 1)) # Set the foreground to white
-#    osd_widget.add(textview)
 
-    overlay.set_opacity(0.5)
     overlay.add_overlay(osd_widget)
 
 #    play_image = Gtk.Image.new_from_icon_name(
