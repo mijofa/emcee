@@ -2,7 +2,8 @@
 import sys
 
 # This must be done *before* importing GTK, otherwise it will cause some unexpected segfaults
-# GTK doesn't enable X11's (Un)LockDisplay functions which allow multiple threads to safely draw to the same X window. VLC needs this functionality to do accelarated rendering.
+# GTK doesn't enable X11's (Un)LockDisplay functions which allow multiple threads to safely draw to the same X window.
+# VLC needs this functionality to do accelarated rendering.
 #
 # NOTE: This must be the first thing done with X11, as such it probably needs to be called before even importing this widget.
 import ctypes
@@ -38,18 +39,19 @@ def debug(*args):
 
 class VLCWidget(Gtk.DrawingArea):
     # These are the event signals that can be triggered by this widget
-    # FIXME: I suspect I'm using GTK's signals wrongly, and am supposed to use them to call things interal to the widget, not just to signal when the widget has done things.
+    # FIXME: I suspect I'm using GTK's signals wrongly, and am supposed to use them to call things interal to the widget,
+    #        not just to signal when the widget has done things.
     #    eg, load_thing() should not emit('loaded') but rather emit('load_thing') should trigger do_load_thing()
     __gsignals__ = {
-        'end_reached':      (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
-        'time_changed':     (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
+        'end_reached': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
+        'time_changed': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
         'position_changed': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
-        'paused':           (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
-        'playing':          (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
-        'media_state':      (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
-        'error':            (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
-        'loaded':           (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
-        'initialised':      (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
+        'paused': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
+        'playing': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
+        'media_state': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
+        'error': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
+        'loaded': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
+        'initialised': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
     }
 
     # Initialise state variables
@@ -68,7 +70,7 @@ class VLCWidget(Gtk.DrawingArea):
 
         # Initialise the DrawingArea
         super(VLCWidget, self).__init__(*args)
-        self.override_background_color(0, Gdk.RGBA(red=0,green=0,blue=0))  # Fill it with black
+        self.override_background_color(0, Gdk.RGBA(red=0, green=0, blue=0))  # Fill it with black
 
         # Create the VLC instance, and tell it how to inject itself into the DrawingArea widget.
         self.instance = vlc.Instance()
@@ -78,18 +80,22 @@ class VLCWidget(Gtk.DrawingArea):
         ## FIXME: Should these all be changed to emit GObject signals?
 
         self.event_manager = self.player.event_manager()
-        self.event_manager.event_attach(vlc.EventType.MediaPlayerLengthChanged, self._on_length)              # Should really only trigger when loading new media
-        self.event_manager.event_attach(vlc.EventType.MediaPlayerPaused, self._on_paused)                     #
-        self.event_manager.event_attach(vlc.EventType.MediaPlayerPlaying, self._on_playing)                   #
-        self.event_manager.event_attach(vlc.EventType.MediaPlayerTimeChanged, self._on_time_changed)          # Current position in milliseconds
-        self.event_manager.event_attach(vlc.EventType.MediaPlayerPositionChanged, self._on_position_changed)  # Current position in percentage of total length
-        #self.event_manager.event_attach(vlc.EventType.MediaPlayerTitleChanged, self._on_title_changed)      # FIXME: Doesn't trigger, might be that my test file is insufficient
-        self.event_manager.event_attach(vlc.EventType.MediaPlayerEndReached, lambda _:self.emit('end_reached'))
-        self.event_manager.event_attach(vlc.EventType.MediaPlayerEncounteredError, lambda _:self.emit('error'))
+        # Should really only trigger when loading new media
+        self.event_manager.event_attach(vlc.EventType.MediaPlayerLengthChanged, self._on_length)
+        self.event_manager.event_attach(vlc.EventType.MediaPlayerPaused, self._on_paused)
+        self.event_manager.event_attach(vlc.EventType.MediaPlayerPlaying, self._on_playing)
+        # Current position in milliseconds
+        self.event_manager.event_attach(vlc.EventType.MediaPlayerTimeChanged, self._on_time_changed)
+        # Current position in percentage of total length
+        self.event_manager.event_attach(vlc.EventType.MediaPlayerPositionChanged, self._on_position_changed)
+        #self.event_manager.event_attach(vlc.EventType.MediaPlayerTitleChanged, self._on_title_changed)  # FIXME: Hasn't triggered
+        self.event_manager.event_attach(vlc.EventType.MediaPlayerEndReached, lambda _: self.emit('end_reached'))
+        self.event_manager.event_attach(vlc.EventType.MediaPlayerEncounteredError, lambda _: self.emit('error'))
 
         self.connect("destroy", self._destroy)
 
-        # Some of the required initialisation doesn't actually work until the GTK widget has been realised, so we split that into a separate function.
+        # Some of the required initialisation doesn't actually work until the GTK widget has been realised,
+        # so we split that into a separate function.
         self.connect("realize", self._realize)
 
     def _realize(self, widget, data=None):
@@ -139,7 +145,9 @@ class VLCWidget(Gtk.DrawingArea):
             return
 
         ##FIXME: Handle loading of subtitles as well
-        ##       If a .srt or similar is placed with the media file, load that and turn them on by default. (I think VLC does this automatically)
+        ##       If a .srt or similar is placed with the media file, load that and turn them on by default.
+        ##       Does VLC do that automatically?
+        ##
         ##       Otherwise turn them off by default, but search for them automatically at http://thesubdb.com/
         ##       TV stream telx & similar should be turned off by default as well.
 
@@ -156,8 +164,8 @@ class VLCWidget(Gtk.DrawingArea):
             media = self.instance.media_new(uri)
 
         media_em = media.event_manager()
-        media_em.event_attach(vlc.EventType.MediaStateChanged,   self._on_state_change)
-        media_em.event_attach(vlc.EventType.MediaParsedChanged,  self._on_parsed)
+        media_em.event_attach(vlc.EventType.MediaStateChanged, self._on_state_change)
+        media_em.event_attach(vlc.EventType.MediaParsedChanged, self._on_parsed)
 
         self.player.set_media(media)
         self.player.play()
@@ -181,7 +189,7 @@ class VLCWidget(Gtk.DrawingArea):
                 self.subtitles = {-1: 'No subtitles found'}
             else:
                 self.subtitles = dict(self.player.video_get_spu_description())
-                self.subtitles[-1] = 'Disabled'  # FIXME: I believe I've seen things other than '-1' used to disable subtitles, should they be normalised?
+                self.subtitles[-1] = 'Disabled'  # FIXME: Are things other than '-1' used to disable subtitles? Normalise it all?
                 # FIXME: Might need to do some ugly teletext handling stuff
 
             if 0 == self.player.audio_get_track_count():
@@ -312,7 +320,8 @@ class VLCWidget(Gtk.DrawingArea):
     def get_volume(self):
         """Get the current volume as a percentage"""
         ## FIXME: It is possible to go above 100%, how should we handle that?
-        ## FIXME: I wanted this to be queried as a variable (self.volume) that updates only when changed, similar to self.time and self.position, but there's no VLC event to hook for volume changes
+        ## FIXME: I wanted this to be queried as a variable (self.volume) that updates only when changed,
+        ##        similar to self.time and self.position, but there's no VLC event to hook for volume changes
         return self.player.audio_get_volume() / 100
 
     def set_volume(self, value):
@@ -378,22 +387,22 @@ def main(*args):
 
     ## Keyboard input setup
     keybindings = {
-        'space':        vid.toggle_pause,
-        'Left':         lambda: vid.seek(-20),  # 20 seconds back
-        'Right':        lambda: vid.seek(+30),  # 30 seconds forward
-        'F':            window.fullscreen,
-        'f':            window.unfullscreen,
-        'BackSpace':    vid.stop,
-        'i':            lambda: print(vid.get_subtitles()),
-        'p':            lambda: vid.play(media_uri),
-        'Escape':       Gtk.main_quit,
-        's':            lambda: print(vid.increment_subtitles()),
-        'a':            lambda: print(vid.increment_audio_track()),
-        'Up':           lambda: vid.increment_volume(+0.02),
-        'Down':         lambda: vid.increment_volume(-0.02),
-        'Page_Up':      lambda: vid.seek(-300),  # 5 minutes back
-        'Page_Down':    lambda: vid.seek(+300),  # 5 minutes forward
-        'Home':         lambda: vid.set_time(0),  # Jump to beginning
+        'space': vid.toggle_pause,
+        'Left': lambda: vid.seek(-20),  # 20 seconds back
+        'Right': lambda: vid.seek(+30),  # 30 seconds forward
+        'F': window.fullscreen,
+        'f': window.unfullscreen,
+        'BackSpace': vid.stop,
+        'i': lambda: print(vid.get_subtitles()),
+        'p': lambda: vid.play(media_uri),
+        'Escape': Gtk.main_quit,
+        's': lambda: print(vid.increment_subtitles()),
+        'a': lambda: print(vid.increment_audio_track()),
+        'Up': lambda: vid.increment_volume(+0.02),
+        'Down': lambda: vid.increment_volume(-0.02),
+        'Page_Up': lambda: vid.seek(-300),  # 5 minutes back
+        'Page_Down': lambda: vid.seek(+300),  # 5 minutes forward
+        'Home': lambda: vid.set_time(0),  # Jump to beginning
     }
 
     def on_key_press(window, event):
@@ -426,7 +435,8 @@ def main(*args):
             bar += '-'
         length_min = int(vid_widget.length / 60)
         length_sec = int(vid_widget.length % 60)
-        # This does space padding for 4 characters (4) removes any decimal points (.0) and displays it as a percentage (%): "{p:4.0%}"
+        # This does space padding for 4 characters (4) removes any decimal points (.0) and displays it as a percentage (%):
+        #     {p:4.0%}
         print(
             "\r{cm:02}:{cs:02} [{bar}] {p:4.0%} {lm:02}:{ls:02} V: {v:4.0%} ".format(
                 cm=current_min, cs=current_sec,
@@ -437,17 +447,17 @@ def main(*args):
             end='')
 
     # FIXME: Should I hook this to other events?
-    vid.connect('paused',           update_status)
+    vid.connect('paused', update_status)
     #vid.connect('position_changed', update_status) # Only really need either time or position, not both
-    vid.connect('time_changed',     update_status)
-    vid.connect('media_state',      update_status)
+    vid.connect('time_changed', update_status)
+    vid.connect('media_state', update_status)
 
     ## Resize when media is finished loading (don't know the resolution before that)
     def resize(vid_widget):
         media_title = vid_widget.player.get_media().get_meta(vlc.Meta.Title)
         window.set_title('Emcee - {}'.format(media_title.rpartition('.')[0]))
         size = vid_widget.player.video_get_size()
-        if size != (0,0):
+        if size != (0, 0):
             # FIXME: Sometimes crashes with this error, if this resize line is
             # removed it just segfaults without error. I suspect the resize
             # isn't adding to the crash at all, and this output is just the
@@ -461,17 +471,17 @@ def main(*args):
             # src/player.py:403: Warning: g_object_replace_qdata: assertion 'G_IS_OBJECT (object)' failed
             #   Gtk.main()
             #
-            # UPDATE: Adding idle_add both here, and to the playpause_button.set_image calls above seems to have reduced this crash significantly.
+            # UPDATE: Adding idle_add here & to the playpause_button.set_image calls above seems to have reduced this crash.
             #    Do I need to use idle_add for all GTK calls?
             GObject.idle_add(lambda: window.resize(*size))
 
-    vid.connect('loaded',       resize)
+    vid.connect('loaded', resize)
 
     # FIXME: This doesn't cleanup VLC
     #        Ideally GTK would have a on_quit hook of some sort where I can tell it to destroy the VLC instance and such.
-    #        My Google-fu seems to indicate that is not the case, so I may need a custom emcee.quit() function that does all of that.
-    vid.connect('error',        lambda _:Gtk.main_quit())  # Quit & cleanup when VLC has an error
-    vid.connect('end_reached',  lambda _:Gtk.main_quit())  # Quit & cleanup when finished media file
+    #        My Google-fu seems to indicate that is not the case so I may need a custom emcee.quit() function that does all of that
+    vid.connect('error', lambda _: Gtk.main_quit())  # Quit & cleanup when VLC has an error
+    vid.connect('end_reached', lambda _: Gtk.main_quit())  # Quit & cleanup when finished media file
     Gtk.main()
 
 if __name__ == '__main__':
