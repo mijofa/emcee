@@ -32,7 +32,7 @@ class OSD(Gtk.Overlay):
         self.add(bg)
 
         grid = Gtk.Grid()
-        grid.override_background_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(1, 1, 1, 0))  # Set the background to black
+        grid.override_background_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(0, 0, 0, 0))
         self.add_overlay(grid)
         grid.set_column_homogeneous(False)
 
@@ -89,6 +89,7 @@ class OSD(Gtk.Overlay):
         self.set_time = time_wid.set_text  # FIXME: Make a generic "update" function, trigger that whenever the time changes
 
     def toggle(self):
+        self.set_time(time.strftime('%X'))  # FIXME: Make a generic "update" function, trigger that whenever the time changes
         if self.get_visible():
             self.hide()
         else:
@@ -97,16 +98,10 @@ class OSD(Gtk.Overlay):
 
 if __name__ == '__main__':
     win = Gtk.Window()
+    win.override_background_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(0, 0, 0, 1))  # Set the background to black
     win.connect("delete-event", Gtk.main_quit)
     osd = OSD()
     win.add(osd)
-    textview = Gtk.TextView()
-    ##textview.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
-    textbuffer = textview.get_buffer()
-    textbuffer.set_text("Test string", -1)
-    textview.override_background_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(0, 0, 0, 0))  # Set the background to transparent
-    textview.override_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(1, 1, 1, 1))  # Set the foreground to white
-    osd.add(textview)
 
     win.show_all()
     Gtk.main()
