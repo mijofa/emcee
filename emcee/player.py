@@ -461,10 +461,12 @@ def main(*args):  # noqa: C901
 
     # FIXME: Should I hook this to other events?
     vid.connect('paused', update_status)
-    #vid.connect('position_changed', update_status) # Only really need either time or position, not both
+    #vid.connect('position_changed', update_status)  # Only really need either time or position, not both
     vid.connect('time_changed', update_status)
     vid.connect('volume_changed', update_status)
     vid.connect('media_state', update_status)
+
+    vid.connect('position_changed', lambda _: osd_widget.set_position(vid.position))
 
     ## Resize when media is finished loading (don't know the resolution before that)
     def on_load(vid_widget):
