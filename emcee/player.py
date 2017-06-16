@@ -382,8 +382,9 @@ def main(*args):  # noqa: C901
 #    overlay.add_overlay(playpause_button)
 
     window.add(overlay)
-    overlay.show_all()
-    window.show_all()
+    vid.show_all()
+    # Don't use show_all() because the OSD should stay hidden at this stage
+    overlay.show()
     debug('shown all')
 
     ## Keyboard input setup
@@ -433,7 +434,7 @@ def main(*args):  # noqa: C901
     def update_status(vid_widget):
         """Make a fancy looking progressbar with numbers for how far into the current movie you are"""
         if vid_widget.state == 'Opening':
-            print('Loading ', vid_widget.player.get_media().get_mrl())
+            print('Loading', vid_widget.player.get_media().get_mrl())
         elif vid_widget.state not in ('Playing', 'Paused', 'Ended'):
             debug('Unknown state:', vid_widget.state)
             return
@@ -466,9 +467,11 @@ def main(*args):  # noqa: C901
     vid.connect('media_state', update_status)
 
     ## Resize when media is finished loading (don't know the resolution before that)
-    def resize(vid_widget):
+    def on_load(vid_widget):
         media_title = vid_widget.player.get_media().get_meta(vlc.Meta.Title)
-        window.set_title('Emcee - {}'.format(media_title.rpartition('.')[0]))
+        media_title = media_title.rpartition('.')[0]  # FIXME: Will there always be an extension?
+        window.set_title('Emcee - {}'.format(media_title))
+        osd_widget.set_title(media_title)
         size = vid_widget.player.video_get_size()
         if size != (0, 0):
             # FIXME: Sometimes crashes with this error, if this resize line is
@@ -484,11 +487,11 @@ def main(*args):  # noqa: C901
             # src/player.py:403: Warning: g_object_replace_qdata: assertion 'G_IS_OBJECT (object)' failed
             #   Gtk.main()
             #
-            # UPDATE: Adding idle_add here & to the playpause_button.set_image calls above seems to have reduced this crash.
-            #    Do I need to use idle_add for all GTK calls?
+            # UPDATE: Adding idle_add here seems to have reduced this crash.
+            #    Do I need to use idle_add for all GTK calls run during app operation?
             GObject.idle_add(lambda: window.resize(*size))
 
-    vid.connect('loaded', resize)
+    vid.connect('loaded', on_load)
 
     # FIXME: This doesn't cleanup VLC
     #        Ideally GTK would have a on_quit hook of some sort where I can tell it to destroy the VLC instance and such.
