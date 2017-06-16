@@ -46,6 +46,7 @@ class VLCWidget(Gtk.DrawingArea):
         'end_reached': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
         'time_changed': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
         'position_changed': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
+        'volume_changed': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
         'paused': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
         'playing': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
         'media_state': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
@@ -57,6 +58,7 @@ class VLCWidget(Gtk.DrawingArea):
     # Initialise state variables
     time = 0
     position = 0
+    volume = 0
     length = 0
     paused = True
     state = 'NothingSpecial'  # This string is copied from VLC's default state
@@ -89,6 +91,8 @@ class VLCWidget(Gtk.DrawingArea):
         # Current position in percentage of total length
         self.event_manager.event_attach(vlc.EventType.MediaPlayerPositionChanged, self._on_position_changed)
         #self.event_manager.event_attach(vlc.EventType.MediaPlayerTitleChanged, self._on_title_changed)  # FIXME: Hasn't triggered
+        # Perhaps "Title" actually refers to DVD Title, not the name of the current media
+        self.event_manager.event_attach(vlc.EventType.MediaPlayerAudioVolume, self._on_volume_changed)
         self.event_manager.event_attach(vlc.EventType.MediaPlayerEndReached, lambda _: self.emit('end_reached'))
         self.event_manager.event_attach(vlc.EventType.MediaPlayerEncounteredError, lambda _: self.emit('error'))
 
@@ -123,6 +127,12 @@ class VLCWidget(Gtk.DrawingArea):
     def _on_playing(self, event):
         self.paused = False
         self.emit('playing')
+
+    def _on_volume_changed(self, event):
+        # Surprisingly, the VLC event object doesn't include the new volume.
+        # So Need to query that here
+        self.volume = self.player.audio_get_volume() / 100
+        self.emit('volume_changed')
 
     def _on_time_changed(self, event):
         self.time = event.u.new_time / 1000
@@ -317,24 +327,15 @@ class VLCWidget(Gtk.DrawingArea):
 
         return self.set_audio_track(index)
 
-    def get_volume(self):
-        """Get the current volume as a percentage"""
-        ## FIXME: It is possible to go above 100%, how should we handle that?
-        ## FIXME: I wanted this to be queried as a variable (self.volume) that updates only when changed,
-        ##        similar to self.time and self.position, but there's no VLC event to hook for volume changes
-        return self.player.audio_get_volume() / 100
-
     def set_volume(self, value):
         """Set the volume to a specific percentage"""
         self.player.audio_set_volume(int(value * 100))
-        return self.get_volume()
+        return value  # FIXME: This blindly assumes the volume change worked
 
     def increment_volume(self, inc):
         """Increment volume by a percentage of the total"""
-        value = self.get_volume() + inc
-        self.set_volume(value)
-
-        return self.get_volume()
+        value = self.volume + inc
+        return self.set_volume(value)
 
 
 def main(*args):  # noqa: C901
@@ -454,13 +455,14 @@ def main(*args):  # noqa: C901
                 bar=bar,
                 p=vid_widget.position,
                 lm=length_min, ls=length_sec,
-                v=vid_widget.get_volume()),
+                v=vid_widget.volume),
             end='')
 
     # FIXME: Should I hook this to other events?
     vid.connect('paused', update_status)
     #vid.connect('position_changed', update_status) # Only really need either time or position, not both
     vid.connect('time_changed', update_status)
+    vid.connect('volume_changed', update_status)
     vid.connect('media_state', update_status)
 
     ## Resize when media is finished loading (don't know the resolution before that)
