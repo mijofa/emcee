@@ -388,6 +388,10 @@ def main(*args):  # noqa: C901
     overlay.show()
     debug('shown all')
 
+    def f():
+        osd_widget.set_has_position(True)
+        vid.connect('position_changed', lambda v: osd_widget.set_position(v.position))
+
     ## Keyboard input setup
     keybindings = {
         # Volume
@@ -410,6 +414,7 @@ def main(*args):  # noqa: C901
         'f': window.unfullscreen,
 
         'i': osd_widget.toggle,
+        'I': f,
 
         's': lambda: print(vid.increment_subtitles()),
         'S': lambda: print(vid.get_subtitles()),

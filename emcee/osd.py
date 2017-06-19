@@ -108,13 +108,22 @@ class OSD(Gtk.Frame):
         # Current position, if we don't know the end time maybe this should be hidden.
         # FIXME: Was never able to make the progressbar thicker than 6px, that's not suitable for a 10-foot UI
         #        We decided to turn off the ProgressBar entirely because it's not necessary for streaming media, can be fixed later
-#        position = Gtk.ProgressBar()
-#        position.set_fraction(0.5)
-#        position.set_vexpand(True)
-#        position.set_valign(Gtk.Align.FILL)
-#        self.pack_start(position, expand=True, fill=True, padding=0)
-#
-#        self.set_position = position.set_fraction
+        def f():
+            pass
+        self.set_position = f
+        self.box = box  # Only here for the temporary set_has_position function
+
+    def set_has_position(self,has_position):
+        # FIXME: This is not suitable for the end result, I've only put this here for use at home when not 10-feet away.
+        assert type(has_position) == bool
+        if not has_position:
+            raise NotImplementedError("Haven't actually implemented removing the progress bar")
+        position = Gtk.ProgressBar()
+        position.set_vexpand(True)
+        position.set_valign(Gtk.Align.FILL)
+        self.box.pack_end(position, expand=True, fill=True, padding=0)
+
+        self.set_position = position.set_fraction
 
     def toggle(self):
         self.set_time(time.strftime('%X'))  # FIXME: Make a generic "update" function, trigger that whenever the time changes
