@@ -10,7 +10,7 @@ OUTER_MARGIN = 10
 ## FIXME: Either make the OSD variable size based on the window size, or set the minimum app window size to the size of the OSD.
 
 
-class OSD(Gtk.VBox):
+class OSD(Gtk.Frame):
     def __init__(self):
         super(OSD, self).__init__()
         # Position self in top-right
@@ -19,17 +19,14 @@ class OSD(Gtk.VBox):
         # But not the very far-right
         self.set_margin_top(OUTER_MARGIN)
         self.set_margin_right(OUTER_MARGIN)
+        self.set_border_width(2)
         self.set_name("osd")  # Only used for CSS styling
 
         # FIXME: Move this stylesheet out into a CSS file and import that as a theme in the application
         style_provider = Gtk.CssProvider()
         css = b"""
             #osd {
-                /* FIXME: Make the border act as padding, or add padding */
-
-                border-color: white;
-                border-style: solid;
-                border-width: 2px;
+                padding: 2px;
                 border-radius: 10px;
                 box-shadow: 0 0 15px #333 inset;
 
@@ -59,6 +56,9 @@ class OSD(Gtk.VBox):
             Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
         )
 
+        box = Gtk.VBox()
+        self.add(box)
+
         # Title of the currently playing media
         title = Gtk.Label()
         title.set_name("title")
@@ -71,11 +71,11 @@ class OSD(Gtk.VBox):
         title.set_justify(Gtk.Justification.LEFT)
         title.set_text("Media title goes here but for now here's a long string for testing purposes")
 
-        self.pack_start(title, expand=True, fill=True, padding=0)
+        box.pack_start(title, expand=True, fill=True, padding=0)
         self.set_title = title.set_text
 
         status_line = Gtk.HBox()
-        self.pack_start(status_line, expand=False, fill=False, padding=0)
+        box.pack_start(status_line, expand=False, fill=False, padding=0)
 
         # Current status, this could be "volume: 10%", if nothing is happening it could be something useful to go with the title.
         status = Gtk.Label()  # FIXME: Should this perhaps be a Gtk.StatusBar?
