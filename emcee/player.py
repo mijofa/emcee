@@ -72,6 +72,7 @@ class VLCWidget(Gtk.DrawingArea):
 
         # Initialise the DrawingArea
         super(VLCWidget, self).__init__(*args)
+        self.set_size_request(640, 360)  # FIXME: Magic number, is a small 16:9 ratio for the default window size
         self.override_background_color(0, Gdk.RGBA(red=0, green=0, blue=0))  # Fill it with black
 
         # Create the VLC instance, and tell it how to inject itself into the DrawingArea widget.
@@ -466,32 +467,17 @@ def main(*args):  # noqa: C901
     vid.connect('volume_changed', update_status)
     vid.connect('media_state', update_status)
 
-    vid.connect('position_changed', lambda _: osd_widget.set_position(vid.position))
-
     ## Resize when media is finished loading (don't know the resolution before that)
     def on_load(vid_widget):
         media_title = vid_widget.player.get_media().get_meta(vlc.Meta.Title)
         media_title = media_title.rpartition('.')[0]  # FIXME: Will there always be an extension?
         window.set_title('Emcee - {}'.format(media_title))
-        osd_widget.set_title(media_title)
+        # NOTE: Without using idle_add here an intermittent issue will occur with Gtk getting stuck.
+        GObject.idle_add(osd_widget.set_title, media_title)
         size = vid_widget.player.video_get_size()
         if size != (0, 0):
-            # FIXME: Sometimes crashes with this error, if this resize line is
-            # removed it just segfaults without error. I suspect the resize
-            # isn't adding to the crash at all, and this output is just the
-            # resize failing after it crashes, but I don't understand the crash
-            # yet
-            #
-            # (player.py:14508): Pango-CRITICAL **: pango_context_get_matrix: assertion 'PANGO_IS_CONTEXT (context)' failed
-            # src/player.py:403: Warning: g_object_get_qdata: assertion 'G_IS_OBJECT (object)' failed
-            #   Gtk.main()
-            # (player.py:14508): Pango-CRITICAL **: pango_context_get_matrix: assertion 'PANGO_IS_CONTEXT (context)' failed
-            # src/player.py:403: Warning: g_object_replace_qdata: assertion 'G_IS_OBJECT (object)' failed
-            #   Gtk.main()
-            #
-            # UPDATE: Adding idle_add here seems to have reduced this crash.
-            #    Do I need to use idle_add for all GTK calls run during app operation?
-            GObject.idle_add(lambda: window.resize(*size))
+            # NOTE: Without using idle_add here an intermittent issue will occur with Gtk getting stuck.
+            GObject.idle_add(window.resize, *size)
 
     vid.connect('loaded', on_load)
 
