@@ -3,57 +3,59 @@
 import time
 from gi.repository import Gtk, Gdk, Pango, GObject
 
-INNER_MARGIN = 5
+TIME_FORMAT = '%X'  # FIXME: Confirm that '%X' really does change with locale
+
 OUTER_MARGIN = 10
 
 ## STOP! You can not make the overlay partially transparent, give up trying!
 ## FIXME: Either make the OSD variable size based on the window size, or set the minimum app window size to the size of the OSD.
 
+# FIXME: Move this stylesheet out into a CSS file and import that as a theme in the application
+style_provider = Gtk.CssProvider()
+css = b"""
+    #osd {
+        padding: 2px;
+        border-radius: 10px;
+        box-shadow: 0 0 15px #333 inset;
+
+        background-color: grey;
+        color: white;
+    }
+    /* FIXME: Is there a "big" font option? Is it big enough for a 10-foot UI? */
+    #osd #title {
+        font-size: 30px
+    }
+    #osd #status, #osd #clock {
+        font-size: 25px
+    }
+
+    /* FIXME: Only here for testing, remove them */
+    #osd #clock {
+        color: red;
+    }
+    #osd #status {
+        color: blue;
+    }
+"""
+style_provider.load_from_data(css)
+Gtk.StyleContext.add_provider_for_screen(
+    Gdk.Screen.get_default(),
+    style_provider,
+    Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+)
+
 
 class OSD(Gtk.Frame):
     def __init__(self):
-        super(OSD, self).__init__()
-        # Position self in top-right
-        self.set_halign(Gtk.Align.END)
-        self.set_valign(Gtk.Align.START)
-        # But not the very far-right
-        self.set_margin_top(OUTER_MARGIN)
-        self.set_margin_right(OUTER_MARGIN)
-        self.set_border_width(2)
-        self.set_name("osd")  # Only used for CSS styling
-
-        # FIXME: Move this stylesheet out into a CSS file and import that as a theme in the application
-        style_provider = Gtk.CssProvider()
-        css = b"""
-            #osd {
-                padding: 2px;
-                border-radius: 10px;
-                box-shadow: 0 0 15px #333 inset;
-
-                background-color: grey;
-                color: white;
-            }
-            /* FIXME: Is there a "big" font option? Is it big enough for a 10-foot UI? */
-            #osd #title {
-                font-size: 30px
-            }
-            #osd #status, #osd #clock {
-                font-size: 25px
-            }
-
-            /* FIXME: Only here for testing, remove them */
-            #osd #clock {
-                color: red;
-            }
-            #osd #status {
-                color: blue;
-            }
-        """
-        style_provider.load_from_data(css)
-        Gtk.StyleContext.add_provider_for_screen(
-            Gdk.Screen.get_default(),
-            style_provider,
-            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+        super(OSD, self).__init__(
+            margin=OUTER_MARGIN,  # Keep it slightly away from the edge
+            name="osd",  # Used for CSS styling
+            border_width=2,
+            # Anchor it to the top-left
+            # FIXME: Doesn't work in top-right. If the label strings get long the entire OSD moves away from the right edge.
+            #        Like it's allocating space, but then not using it because the ellipsizing is doing it's job
+            halign=Gtk.Align.START,
+            valign=Gtk.Align.START,
         )
 
         box = Gtk.VBox()
@@ -63,19 +65,16 @@ class OSD(Gtk.Frame):
         title = Gtk.Label()
         title.set_name("title")
         title.set_single_line_mode(True)
-        # NOTE: I believe the background is already transparent by default,
-        #       but should never set one without the other or you might end up with white-on-white
-        title.set_max_width_chars(25)
+        title.set_max_width_chars(-1)
         title.set_ellipsize(Pango.EllipsizeMode.MIDDLE)
         title.set_halign(Gtk.Align.START)
-        title.set_justify(Gtk.Justification.LEFT)
         title.set_text("Media title goes here but for now here's a long string for testing purposes")
 
         box.pack_start(title, expand=True, fill=True, padding=0)
         self.set_title = title.set_text
 
         status_line = Gtk.HBox()
-        box.pack_start(status_line, expand=False, fill=False, padding=0)
+        box.pack_start(status_line, expand=True, fill=True, padding=0)
 
         # Current status, this could be "volume: 10%", if nothing is happening it could be something useful to go with the title.
         status = Gtk.Label()  # FIXME: Should this perhaps be a Gtk.StatusBar?
@@ -85,9 +84,7 @@ class OSD(Gtk.Frame):
         status.set_ellipsize(Pango.EllipsizeMode.END)
         status.set_halign(Gtk.Align.START)
         status.set_justify(Gtk.Justification.LEFT)
-        status.set_text("Status")
-# FIXME: OSD starts sliding off to the right if status string is longer than the width of the window.
-#        status.set_text("Super long stirng to see what happens when I put a super long string here.")
+        status.set_text("Status line goes here, but I need a long string for testing so this should do just fine")
 
         status_line.pack_start(status, expand=True, fill=True, padding=0)
         self.set_status = status.set_text
@@ -96,11 +93,10 @@ class OSD(Gtk.Frame):
         clock = Gtk.Label()
         clock.set_name("clock")
         clock.set_single_line_mode(True)
-        clock.set_max_width_chars(8)
-        clock.set_ellipsize(Pango.EllipsizeMode.END)
+        # Not setting max_width_chars or ellipsize here as I want the clock to take up all the space it needs
         clock.set_halign(Gtk.Align.END)
         clock.set_justify(Gtk.Justification.RIGHT)
-        clock.set_text(time.strftime('%X'))  # FIXME: Confirm that '%X' really does change with locale
+        clock.set_text(time.strftime(TIME_FORMAT))
 
         status_line.pack_start(clock, expand=False, fill=False, padding=0)
         self.set_time = clock.set_text  # FIXME: Make a generic "update" function, trigger that whenever the time changes
@@ -110,10 +106,11 @@ class OSD(Gtk.Frame):
         #        We decided to turn off the ProgressBar entirely because it's not necessary for streaming media, can be fixed later
         def f():
             pass
+
         self.set_position = f
         self.box = box  # Only here for the temporary set_has_position function
 
-    def set_has_position(self,has_position):
+    def set_has_position(self, has_position):
         # FIXME: This is not suitable for the end result, I've only put this here for use at home when not 10-feet away.
         assert type(has_position) == bool
         if not has_position:
