@@ -46,6 +46,8 @@ Gtk.StyleContext.add_provider_for_screen(
 
 
 class OSD(Gtk.Frame):
+    _hide_timer = None
+
     def __init__(self):
         super().__init__(
             margin=OUTER_MARGIN,  # Keep it slightly away from the edge
@@ -91,7 +93,8 @@ class OSD(Gtk.Frame):
         # Convenience functions for updating the labels
         self.set_title = title.set_text
         self.set_status = status.set_text
-        self.set_time = clock.set_text
+        self._set_time = clock.set_text  # Should never actually be called externally
+        GObject.timeout_add(500, self._update_time)
 
         vbox = Gtk.VBox()
         self.add(vbox)
@@ -125,14 +128,31 @@ class OSD(Gtk.Frame):
 
         self.set_position = position.set_fraction
 
+    def _update_time(self):
+        self._set_time(time.strftime(TIME_FORMAT))
+        return True  # Gotta return True to tell GObject to keep the timer running and keep running this every second
+
+    def show(self, timeout=5):
+        super().show()
+        if timeout:
+            self._hide_timer = GObject.timeout_add_seconds(timeout, self.hide)  # FIXME: Increase from 3s?
+
+    def hide(self):
+        # FIXME: This may be run by the timout as well, I'm not sure whether it's a good idea to be removing it's own.
+        #        This works fine in testing though, so I'm leaving it as is
+        #
+        #        If that is a problem perhaps replace the timeout with super().hide()
+        if self._hide_timer is not None:  # It's possible (although unlikely) that self._hide_timer will be 0
+            GObject.source_remove(self._hide_timer)
+            self._hide_timer = None
+
+        return super().hide()
+
     def toggle(self):
-        self.set_time(time.strftime('%X'))  # FIXME: Make a generic "update" function, trigger that whenever the time changes
         if self.get_visible():
             self.hide()
-            # FIXME: Remove timeout added when showing the OSD
         else:
-            self.show_all()
-            GObject.timeout_add_seconds(3, self.hide)  # FIXME: Increase from 3s, only that low for testing
+            self.show()
 
 if __name__ == '__main__':
     win = Gtk.Window()
