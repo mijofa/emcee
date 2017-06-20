@@ -47,7 +47,7 @@ Gtk.StyleContext.add_provider_for_screen(
 
 class OSD(Gtk.Frame):
     def __init__(self):
-        super(OSD, self).__init__(
+        super().__init__(
             margin=OUTER_MARGIN,  # Keep it slightly away from the edge
             name="osd",  # Used for CSS styling
             border_width=2,
@@ -58,48 +58,50 @@ class OSD(Gtk.Frame):
             valign=Gtk.Align.START,
         )
 
-        box = Gtk.VBox()
-        self.add(box)
-
         # Title of the currently playing media
-        title = Gtk.Label()
-        title.set_name("title")
-        title.set_single_line_mode(True)
-        title.set_max_width_chars(-1)
-        title.set_ellipsize(Pango.EllipsizeMode.MIDDLE)
-        title.set_halign(Gtk.Align.START)
+        title = Gtk.Label(
+            name="title",
+            single_line_mode=True,
+            max_width_chars=-1,
+            ellipsize=Pango.EllipsizeMode.MIDDLE,
+            halign=Gtk.Align.START,
+        )
         title.set_text("Media title goes here but for now here's a long string for testing purposes")
 
-        box.pack_start(title, expand=True, fill=True, padding=0)
-        self.set_title = title.set_text
-
-        status_line = Gtk.HBox()
-        box.pack_start(status_line, expand=True, fill=True, padding=0)
-
         # Current status, this could be "volume: 10%", if nothing is happening it could be something useful to go with the title.
-        status = Gtk.Label()  # FIXME: Should this perhaps be a Gtk.StatusBar?
-        status.set_name("status")
-        status.set_single_line_mode(True)
-        status.set_max_width_chars(-1)
-        status.set_ellipsize(Pango.EllipsizeMode.END)
-        status.set_halign(Gtk.Align.START)
-        status.set_justify(Gtk.Justification.LEFT)
+        status = Gtk.Label(  # FIXME: Should this perhaps be a Gtk.StatusBar?
+            name="status",
+            single_line_mode=True,
+            max_width_chars=-1,
+            ellipsize=Pango.EllipsizeMode.END,
+            halign=Gtk.Align.START,
+            justify=Gtk.Justification.LEFT,
+        )
         status.set_text("Status line goes here, but I need a long string for testing so this should do just fine")
 
-        status_line.pack_start(status, expand=True, fill=True, padding=0)
-        self.set_status = status.set_text
-
         # Current time.
-        clock = Gtk.Label()
-        clock.set_name("clock")
-        clock.set_single_line_mode(True)
-        # Not setting max_width_chars or ellipsize here as I want the clock to take up all the space it needs
-        clock.set_halign(Gtk.Align.END)
-        clock.set_justify(Gtk.Justification.RIGHT)
-        clock.set_text(time.strftime(TIME_FORMAT))
+        clock = Gtk.Label(
+            name="clock",
+            single_line_mode=True,
+            # Not setting max_width_chars or ellipsize here as I want the clock to take up all the space it needs
+            halign=Gtk.Align.END,
+            justify=Gtk.Justification.RIGHT,
+        )
 
+        # Convenience functions for updating the labels
+        self.set_title = title.set_text
+        self.set_status = status.set_text
+        self.set_time = clock.set_text
+
+        vbox = Gtk.VBox()
+        self.add(vbox)
+        vbox.pack_start(title, expand=True, fill=True, padding=0)
+        status_line = Gtk.HBox()
+        status_line.pack_start(status, expand=True, fill=True, padding=0)
         status_line.pack_start(clock, expand=False, fill=False, padding=0)
-        self.set_time = clock.set_text  # FIXME: Make a generic "update" function, trigger that whenever the time changes
+        vbox.pack_start(status_line, expand=True, fill=True, padding=0)
+
+        vbox.show_all()  # This shows all widgets inside the Frame, allowing me to use show/hide to toggle the frame itself
 
         # Current position, if we don't know the end time maybe this should be hidden.
         # FIXME: Was never able to make the progressbar thicker than 6px, that's not suitable for a 10-foot UI
@@ -108,17 +110,18 @@ class OSD(Gtk.Frame):
             pass
 
         self.set_position = f
-        self.box = box  # Only here for the temporary set_has_position function
+        self.vbox = vbox  # Only here for the temporary set_has_position function
 
     def set_has_position(self, has_position):
         # FIXME: This is not suitable for the end result, I've only put this here for use at home when not 10-feet away.
         assert type(has_position) == bool
         if not has_position:
             raise NotImplementedError("Haven't actually implemented removing the progress bar")
-        position = Gtk.ProgressBar()
-        position.set_vexpand(True)
-        position.set_valign(Gtk.Align.FILL)
-        self.box.pack_end(position, expand=True, fill=True, padding=0)
+        position = Gtk.ProgressBar(
+            vexpand=True,
+            valign=Gtk.Align.FILL,
+        )
+        self.vbox.pack_end(position, expand=True, fill=True, padding=0)
 
         self.set_position = position.set_fraction
 
