@@ -82,14 +82,11 @@ class OSD(Gtk.Frame):
         #
         # NOTE: I wanted to call this "subtitle" as it's probably more often going to be used for station name or similar,
         #       being a secondary title. Decided against that to avoid confusion with the video subtitles
-        status = Gtk.Label(  # FIXME: Should this perhaps be a Gtk.StatusBar?
+        self._status = Gtk.Statusbar(  # FIXME: Should this perhaps be a Gtk.StatusBar?
             name="status",
-            single_line_mode=True,
-            max_width_chars=-1,
-            ellipsize=Pango.EllipsizeMode.END,
             halign=Gtk.Align.START,
-            justify=Gtk.Justification.LEFT,
         )
+        self._status.connect('text-pushed', lambda a, b, c: print(a, b, c))
 
         # Current time.
         clock = Gtk.Label(
@@ -102,7 +99,6 @@ class OSD(Gtk.Frame):
 
         # Convenience functions for updating the labels
         self.set_title = title.set_text
-        self.set_status = status.set_text
         self._set_time = clock.set_text  # Should never actually be called externally
         # Set up GLib to update the clock whenever it has a free moment
         GObject.idle_add(self._update_time, priority=GLib.PRIORITY_LOW)
@@ -111,7 +107,7 @@ class OSD(Gtk.Frame):
         self.add(vbox)
         vbox.pack_start(title, expand=True, fill=True, padding=0)
         status_line = Gtk.HBox()
-        status_line.pack_start(status, expand=True, fill=True, padding=0)
+        status_line.pack_start(self._status, expand=True, fill=True, padding=0)
         status_line.pack_start(clock, expand=False, fill=False, padding=0)
         vbox.pack_start(status_line, expand=True, fill=True, padding=0)
 
@@ -146,6 +142,7 @@ class OSD(Gtk.Frame):
         self._set_time(time.strftime(TIME_FORMAT))
         return True  # Gotta return True to tell GObject to keep the timer running and keep running this every second
 
+    ## OSD visibility functions
     def show(self, timeout=5):  # FIXME: What should the timeout be? UPMC defaulted to 3s
         logging.debug('Showing OSD')
         super().show()
@@ -170,6 +167,24 @@ class OSD(Gtk.Frame):
         else:
             self.show()
 
+    ## Status line updating
+    def set_default_status(self, default_status=''):
+        logging.debug('Updating default status "%s"', default_status)
+        self._status.remove_all(self._status.get_context_id('default'))
+        self._status.push(self._status.get_context_id('default'), default_status)
+
+    def push_status(self, context_string, status_string, timeout=3):
+        # Thin wrapper around _status.push that gives every message a timeout before automatically removing it from the stack
+        logging.debug('Adding status string "%s"', status_string)
+        # FIXME: Do something with the context string?
+        #        Perhaps prioritise certain contexts, and choose timeouts accordingly.
+        context_id = self._status.get_context_id(context_string)
+        message_id = self._status.push(context_id, status_string)
+        if timeout != 0:
+            GObject.timeout_add_seconds(timeout, lambda: self._status.remove(context_id, message_id))
+        return message_id
+
+
 if __name__ == '__main__':
     import sys
     logging.basicConfig(level=logging.DEBUG)
@@ -179,7 +194,11 @@ if __name__ == '__main__':
     win.connect("delete-event", Gtk.main_quit)
     osd = OSD()
     osd.set_title(sys.argv[1])
-    osd.set_status(sys.argv[2])
+    osd.set_default_status(sys.argv[2])
+    print(osd.push_status('volume', '0 Temp status', 4))
+    print(osd.push_status('subtitle', '1 Temp status', 3))
+    print(osd.push_status('volume', '2 Temp status', 2))
+    print(osd.push_status('subtitle', '3 Temp status', 1))
     win.add(osd)
 
     win.show_all()
