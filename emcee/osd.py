@@ -1,7 +1,8 @@
 #!/usr/bin/python3
 
 import time
-from gi.repository import Gtk, Gdk, Pango, GObject
+import logging
+from gi.repository import Gtk, Gdk, Pango, GObject, GLib
 
 TIME_FORMAT = '%X'  # FIXME: Confirm that '%X' really does change with locale
 
@@ -29,13 +30,19 @@ css = b"""
         font-size: 25px
     }
 
-    /* FIXME: Only here for testing, remove them */
     #osd #clock {
-        color: red;
+        /* I want to keep the clock from detracting focus away from the other (more important) text */
+        opacity: 0.65;  /* FIXME: Magic number, fairly arbitrary, it looks nice. */
     }
-    #osd #status {
-        color: blue;
-    }
+
+    /* FIXME: Only here for testing, remove them */
+/*    #osd #clock {
+ *        color: red;
+ *    }
+ *    #osd #status {
+ *        color: blue;
+ *    }
+ */
 """
 style_provider.load_from_data(css)
 Gtk.StyleContext.add_provider_for_screen(
@@ -49,6 +56,7 @@ class OSD(Gtk.Frame):
     _hide_timer = None
 
     def __init__(self):
+        logging.debug('Setting up OSD')
         super().__init__(
             margin=OUTER_MARGIN,  # Keep it slightly away from the edge
             name="osd",  # Used for CSS styling
@@ -68,9 +76,12 @@ class OSD(Gtk.Frame):
             ellipsize=Pango.EllipsizeMode.MIDDLE,
             halign=Gtk.Align.START,
         )
-        title.set_text("Media title goes here but for now here's a long string for testing purposes")
+        title.set_size_request(300, -1)  # This defines the minimum length of the OSD.
 
         # Current status, this could be "volume: 10%", if nothing is happening it could be something useful to go with the title.
+        #
+        # NOTE: I wanted to call this "subtitle" as it's probably more often going to be used for station name or similar,
+        #       being a secondary title. Decided against that to avoid confusion with the video subtitles
         status = Gtk.Label(  # FIXME: Should this perhaps be a Gtk.StatusBar?
             name="status",
             single_line_mode=True,
@@ -79,7 +90,6 @@ class OSD(Gtk.Frame):
             halign=Gtk.Align.START,
             justify=Gtk.Justification.LEFT,
         )
-        status.set_text("Status line goes here, but I need a long string for testing so this should do just fine")
 
         # Current time.
         clock = Gtk.Label(
@@ -94,7 +104,8 @@ class OSD(Gtk.Frame):
         self.set_title = title.set_text
         self.set_status = status.set_text
         self._set_time = clock.set_text  # Should never actually be called externally
-        GObject.timeout_add(500, self._update_time)
+        # Set up GLib to update the clock whenever it has a free moment
+        GObject.idle_add(self._update_time, priority=GLib.PRIORITY_LOW)
 
         vbox = Gtk.VBox()
         self.add(vbox)
@@ -116,6 +127,7 @@ class OSD(Gtk.Frame):
         self.vbox = vbox  # Only here for the temporary set_has_position function
 
     def set_has_position(self, has_position):
+        logging.debug('Adding progress bar to OSD')
         # FIXME: This is not suitable for the end result, I've only put this here for use at home when not 10-feet away.
         assert type(has_position) == bool
         if not has_position:
@@ -129,19 +141,23 @@ class OSD(Gtk.Frame):
         self.set_position = position.set_fraction
 
     def _update_time(self):
+        # This function runs *very* often uncommenting this could fill the debug screen in less than a second
+        #logging.debug('Updating clock')
         self._set_time(time.strftime(TIME_FORMAT))
         return True  # Gotta return True to tell GObject to keep the timer running and keep running this every second
 
-    def show(self, timeout=5):
+    def show(self, timeout=5):  # FIXME: What should the timeout be? UPMC defaulted to 3s
+        logging.debug('Showing OSD')
         super().show()
         if timeout:
-            self._hide_timer = GObject.timeout_add_seconds(timeout, self.hide)  # FIXME: Increase from 3s?
+            self._hide_timer = GObject.timeout_add_seconds(timeout, self.hide)
 
     def hide(self):
         # FIXME: This may be run by the timout as well, I'm not sure whether it's a good idea to be removing it's own.
         #        This works fine in testing though, so I'm leaving it as is
         #
         #        If that is a problem perhaps replace the timeout with super().hide()
+        logging.debug('Hiding OSD')
         if self._hide_timer is not None:  # It's possible (although unlikely) that self._hide_timer will be 0
             GObject.source_remove(self._hide_timer)
             self._hide_timer = None
@@ -155,10 +171,15 @@ class OSD(Gtk.Frame):
             self.show()
 
 if __name__ == '__main__':
+    import sys
+    logging.basicConfig(level=logging.DEBUG)
+
     win = Gtk.Window()
     win.override_background_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(0, 0, 0, 1))  # Set the background to black
     win.connect("delete-event", Gtk.main_quit)
     osd = OSD()
+    osd.set_title(sys.argv[1])
+    osd.set_status(sys.argv[2])
     win.add(osd)
 
     win.show_all()
