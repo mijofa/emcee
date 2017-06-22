@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 import sys
+import logging
 
 # This must be done *before* importing GTK, otherwise it will cause some unexpected segfaults
 # GTK doesn't enable X11's (Un)LockDisplay functions which allow multiple threads to safely draw to the same X window.
@@ -26,15 +27,6 @@ GObject.threads_init()
 import vlc
 
 import osd
-
-# FIXME: Make this triggerable via a command-line flag
-debugging_enabled = False  # Avoid committing this as True
-
-
-def debug(*args):
-    if debugging_enabled:
-        print('DEBUGING:', *args,
-              file=sys.stderr)
 
 
 class VLCWidget(Gtk.DrawingArea):
@@ -64,9 +56,9 @@ class VLCWidget(Gtk.DrawingArea):
     state = 'NothingSpecial'  # This string is copied from VLC's default state
     instance = None
 
-    def emit(self, *args, **kwargs):
-        debug('VLCWidget emitting', *args)
-        super(VLCWidget, self).emit(*args, **kwargs)
+    def emit(self, ev_name, *args, **kwargs):
+        logging.debug('VLCWidget emitting %s', ev_name)
+        super(VLCWidget, self).emit(ev_name, *args, **kwargs)
 
     def __init__(self, *args):
 
@@ -104,14 +96,14 @@ class VLCWidget(Gtk.DrawingArea):
         self.connect("realize", self._realize)
 
     def _realize(self, widget, data=None):
-        debug('VLCWidget realizing')
+        logging.debug('VLCWidget realizing')
         win_id = widget.get_window().get_xid()
         self.player.set_xwindow(win_id)
 
         self.emit('initialised')
 
     def _destroy(self, *args):
-        debug("VLCWidget Destroying")
+        logging.debug("VLCWidget Destroying")
         # Stop playback and release the VLC objects for garbage collecting.
         self.player.stop()
         self.player.release()
@@ -147,9 +139,9 @@ class VLCWidget(Gtk.DrawingArea):
     def _load_media(self, uri, local=True):
         """Load a new media file/stream, and whatever else is involved therein"""
 
-        debug('VLDWidget loading media')
+        logging.debug('VLDWidget loading media')
         if not self.instance:
-            debug('    deffered')
+            logging.debug('    deffered')
             # VLC not yet initialised so can't actually load the media yet.
             # Rerun ourselves when VLC has been initialised.
             self.connect('initialised', lambda _: self._load_media(uri=uri, local=local))
@@ -295,7 +287,7 @@ class VLCWidget(Gtk.DrawingArea):
 
     def get_audio_tracks(self):
         """Get name of all audio tracks"""
-        debug(self.audio_tracks)
+        logging.debug(self.audio_tracks)
         return list(self.audio_tracks.values())
 
     def set_audio_track(self, index):
@@ -349,11 +341,8 @@ def main(*args):  # noqa: C901
     overlay = Gtk.Overlay()
 
     vid = VLCWidget()
-    debug('vid created')
     overlay.add(vid)
-    debug('vid added to overlay')
     vid.play(media_uri)
-    debug('vid.play', media_uri)
 
     ## OSD
     osd_widget = osd.OSD()
@@ -386,7 +375,6 @@ def main(*args):  # noqa: C901
     vid.show_all()
     # Don't use show_all() because the OSD should stay hidden at this stage
     overlay.show()
-    debug('shown all')
 
     def f():
         osd_widget.set_has_position(True)
@@ -427,10 +415,18 @@ def main(*args):  # noqa: C901
     def on_key_press(window, event):
         keyname = Gdk.keyval_name(event.keyval)
         if keyname in keybindings.keys():
+            logging.debug('Key pressed: %s', keyname)
+            if keybindings[keyname].__name__ == '<lambda>':
+                logging.debug('Running lambda: %s %s',
+                              keybindings[keyname].__code__.co_names,
+                              keybindings[keyname].__code__.co_consts,
+                              )
+            else:
+                logging.debug('Running functon: %s', keybindings[keyname].__name__)
             # Run the function or lambda stored in the keybindings dict
             keybindings[keyname]()
         else:
-            debug('no keybinding found for %s' % keyname)
+            logging.debug('No keybinding found for %s', keyname)
 
     window.connect("key_press_event", on_key_press)
 
@@ -442,7 +438,7 @@ def main(*args):  # noqa: C901
         if vid_widget.state == 'Opening':
             print('Loading', vid_widget.player.get_media().get_mrl())
         elif vid_widget.state not in ('Playing', 'Paused', 'Ended'):
-            debug('Unknown state:', vid_widget.state)
+            logging.info('VLC in unknown state: %s', vid_widget.state)
             return
         current_min = int(vid_widget.time / 60)
         current_sec = int(vid_widget.time % 60)
