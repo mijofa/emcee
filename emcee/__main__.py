@@ -127,6 +127,8 @@ vid.connect('time_changed', update_status)
 vid.connect('volume_changed', update_status)
 vid.connect('media_state', update_status)
 
+# FIXME: This also triggers when the media is first loaded, I don't want that.
+#        Perhaps I can set an event hook to trigger *after* media loads, which then sets up this hook?
 vid.connect('volume_changed', lambda _: osd.push_status("Volume: {v:4.0%}".format(v=vid.volume)))
 
 
