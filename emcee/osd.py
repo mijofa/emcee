@@ -8,7 +8,10 @@ TIME_FORMAT = '%X'  # FIXME: Confirm that '%X' really does change with locale
 
 OUTER_MARGIN = 10
 
-## STOP! You can not make the overlay partially transparent, give up trying!
+## There were many attempts to make the OSD partially transparent over the top of the video display.
+## While it is possible to make an overlay transparent on whatever is underneath it, this can not work with the VLC widget.
+## I believe this is because of VLC & GTK not interacting well together.
+
 ## FIXME: Either make the OSD variable size based on the window size, or set the minimum app window size to the size of the OSD.
 
 # FIXME: Move this stylesheet out into a CSS file and import that as a theme in the application
@@ -145,19 +148,19 @@ class OSD(Gtk.Frame):
     ## OSD visibility functions
     def show(self, timeout=5):  # FIXME: What should the timeout be? UPMC defaulted to 3s
         logging.debug('Showing OSD')
+
+        # Remove any pre-existing hide timer before displaying the OSD.
+        # This ensures that no previous timer hides the OSD before the new timeout triggers
+        if self._hide_timer is not None:  # It's possible (although unlikely) that self._hide_timer will be 0
+            GObject.source_remove(self._hide_timer)
+            self._hide_timer = None
+
         super().show()
         if timeout:
             self._hide_timer = GObject.timeout_add_seconds(timeout, self.hide)
 
     def hide(self):
-        # FIXME: This may be run by the timout as well, I'm not sure whether it's a good idea to be removing it's own.
-        #        This works fine in testing though, so I'm leaving it as is
-        #
-        #        If that is a problem perhaps replace the timeout with super().hide()
         logging.debug('Hiding OSD')
-        if self._hide_timer is not None:  # It's possible (although unlikely) that self._hide_timer will be 0
-            GObject.source_remove(self._hide_timer)
-            self._hide_timer = None
 
         return super().hide()
 
@@ -173,7 +176,7 @@ class OSD(Gtk.Frame):
         self._status.remove_all(self._status.get_context_id('default'))
         self._status.push(self._status.get_context_id('default'), default_status)
 
-    def push_status(self, context_string, status_string, timeout=3):
+    def push_status(self, status_string, context_string='', timeout=3):
         # Thin wrapper around _status.push that gives every message a timeout before automatically removing it from the stack
         logging.debug('Adding status string "%s"', status_string)
         # FIXME: Do something with the context string?
@@ -181,6 +184,8 @@ class OSD(Gtk.Frame):
         context_id = self._status.get_context_id(context_string)
         message_id = self._status.push(context_id, status_string)
         if timeout != 0:
+            # FIXME: Should this trigger self.show()?
+            # FIXME: Should the status removal be moved to self.hide()?
             GObject.timeout_add_seconds(timeout, lambda: self._status.remove(context_id, message_id))
         return message_id
 
@@ -195,10 +200,12 @@ if __name__ == '__main__':
     osd = OSD()
     osd.set_title(sys.argv[1])
     osd.set_default_status(sys.argv[2])
-    print(osd.push_status('volume', '0 Temp status', 4))
-    print(osd.push_status('subtitle', '1 Temp status', 3))
-    print(osd.push_status('volume', '2 Temp status', 2))
-    print(osd.push_status('subtitle', '3 Temp status', 1))
+    print(osd.push_status('-1 Temp status', timeout=6))
+    print(osd.push_status('0 Temp status', context_string='volume', timeout=4))
+    print(osd.push_status('1 Temp status', context_string='subtitle', timeout=3))
+    print(osd.push_status('-2 Temp status', timeout=2.5))
+    print(osd.push_status('2 Temp status', context_string='volume', timeout=2))
+    print(osd.push_status('3 Temp status', context_string='subtitle', timeout=1))
     win.add(osd)
 
     win.show_all()
