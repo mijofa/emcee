@@ -248,9 +248,9 @@ class VLCWidget(Gtk.DrawingArea):
     def seek(self, seconds):
         """Jump forward or back in the media, unlike set_time() this deals with relative time.
 
-           Suggest when using this to call it with seek(+10) rather than just seek(10).
+           Suggest when using this to call it with inc=+10 rather than just inc=10
            While they are effectively the same thing,
-           conceptually the former makes more sense and avoids confusion between seek and set_time.
+           conceptually the former makes more sense and avoids confusion between increment_ and set_
         """
 
         return self.set_time(self.time + seconds)
@@ -320,7 +320,12 @@ class VLCWidget(Gtk.DrawingArea):
             return 'Audio track {} not found'.format(index)
 
     def increment_audio_track(self, inc=1):
-        """Increment through audio tracks in the order they come from get_audio_tracks()"""
+        """Increment through audio tracks in the order they come from get_audio_tracks()
+
+           Suggest when using this to call it with inc=+10 rather than just inc=10
+           While they are effectively the same thing,
+           conceptually the former makes more sense and avoids confusion between increment_ and set_
+        """
         if len(self.audio_tracks) == 1 and -1 in self.audio_tracks:
             return 'No audio_tracks found'
 
@@ -337,6 +342,11 @@ class VLCWidget(Gtk.DrawingArea):
         return value  # FIXME: This blindly assumes the volume change worked
 
     def increment_volume(self, inc):
-        """Increment volume by a percentage of the total"""
+        """Increment volume by a percentage of the total
+
+           Suggest when using this to call it with inc=+10 rather than just inc=10
+           While they are effectively the same thing,
+           conceptually the former makes more sense and avoids confusion between increment_ and set_
+        """
         value = self.volume + inc
         return self.set_volume(value)
