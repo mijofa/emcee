@@ -208,6 +208,7 @@ class VLCWidget(Gtk.DrawingArea):
 
     ## Querying media info ##
     def get_title(self):
+        # FIXME: Is there a MetaChanged event I can attach to then have all the Meta values in a dict or something?
         return self.player.get_media().get_meta(vlc.Meta.Title)
 
     ## Playback control functions ##

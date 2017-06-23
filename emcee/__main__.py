@@ -29,13 +29,13 @@ vid = emcee.player.VLCWidget()
 overlay.add(vid)
 
 ## OSD
-osd_widget = emcee.osd.OSD()
-overlay.add_overlay(osd_widget)
+osd = emcee.osd.OSD()
+overlay.add_overlay(osd)
 
 # Can't just use overlay.show_all() because I want to use the OSD's show with smaller timeout than default
 vid.show_all()
 overlay.show()
-osd_widget.show(3)
+osd.show(3)
 
 ## Keyboard input setup
 # FIXME: Make this configurable via a config file
@@ -59,7 +59,7 @@ keybindings = {
     'F': window.fullscreen,
     'f': window.unfullscreen,
 
-    'i': osd_widget.toggle,
+    'i': osd.toggle,
 
     's': lambda: print(vid.increment_subtitles()),
     'S': lambda: print(vid.get_subtitles()),
@@ -127,6 +127,8 @@ vid.connect('time_changed', update_status)
 vid.connect('volume_changed', update_status)
 vid.connect('media_state', update_status)
 
+vid.connect('volume_changed', lambda _: osd.push_status("Volume: {v:4.0%}".format(v=vid.volume)))
+
 
 ## Resize when media is finished loading (don't know the resolution before that)
 def on_load(vid_widget):
@@ -134,7 +136,7 @@ def on_load(vid_widget):
     media_title = media_title.rpartition('.')[0]  # FIXME: Will there always be an extension?
     window.set_title('Emcee - {}'.format(media_title))
     # NOTE: Without using idle_add here an intermittent issue will occur with Gtk getting stuck.
-    GObject.idle_add(osd_widget.set_title, media_title)
+    GObject.idle_add(osd.set_title, media_title)
     size = vid_widget.player.video_get_size()
     if size != (0, 0):
         # NOTE: Without using idle_add here an intermittent issue will occur with Gtk getting stuck.

@@ -89,7 +89,6 @@ class OSD(Gtk.Frame):
             name="status",
             halign=Gtk.Align.START,
         )
-        self._status.connect('text-pushed', lambda a, b, c: print(a, b, c))
 
         # Current time.
         clock = Gtk.Label(
@@ -187,6 +186,9 @@ class OSD(Gtk.Frame):
             # FIXME: Should this trigger self.show()?
             # FIXME: Should the status removal be moved to self.hide()?
             GObject.timeout_add_seconds(timeout, lambda: self._status.remove(context_id, message_id))
+
+        # FIXME: Remove *all* status messages when hiding?
+        self.show(timeout=timeout)
         return message_id
 
 
