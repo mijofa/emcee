@@ -1,4 +1,6 @@
 #!/usr/bin/python3
+# NOTE: Consider running this with the GDK_SCALE environment variable set to force all elements to be bigger,
+#       This might be an easier way to implement the 10-foot UI.
 import sys
 import logging
 import warnings
