@@ -9,11 +9,16 @@ BUTTON_HEIGHT = 150  # FIXME: This is based on the current size of the channel g
 OFFSET_UPPER = BUTTON_HEIGHT * 0.75
 OFFSET_LEFT = BUTTON_WIDTH * 0.5
 
+EPG_TEMPLATE = "{channel_title}\nNOW:\n  {now_title}\nNEXT ({next_time}):\n  {next_title}"
+
 # FIXME: Move this stylesheet out into a CSS file and import that as a theme in the application
 style_provider = Gtk.CssProvider()
 css = b"""
 GtkLabel#station-name, GtkLabel#epg {
-   font-size: 25px;
+   border-style: solid;
+   border-color: green;
+   border-width: 20px;
+   font-size: 20px;
    background-color: red;
 }
 GtkWindow {
@@ -235,26 +240,26 @@ class StreamSelector(Gtk.Overlay):
         channel_box.pack_start(epg_box, expand=False, fill=False, padding=0)
         # Spacer to keep it to the right of the station scroller.
         epg_spacer = Gtk.DrawingArea()
-        epg_spacer.set_size_request(BUTTON_WIDTH * 2, BUTTON_HEIGHT)
-        epg_box.pack_start(epg_spacer, expand=False, fill=False, padding=2)
+        epg_spacer.set_size_request(BUTTON_WIDTH + OFFSET_LEFT, BUTTON_HEIGHT)
+        epg_box.pack_start(epg_spacer, expand=False, fill=False, padding=0)
         self.epg_label = Gtk.Label(
             name="epg",
-            halign=Gtk.Align.END,
-            valign=Gtk.Align.START,
-            justify=Gtk.Justification.RIGHT,
+            halign=Gtk.Align.START,
+            valign=Gtk.Align.END,
+            justify=Gtk.Justification.LEFT,
         )
-        self.epg_label.set_line_wrap(True)
+        self.epg_label.set_line_wrap(True)  # Has no effect with ellipsize set unless set_lines is called
         self.epg_label.set_ellipsize(Pango.EllipsizeMode.END)
-        self.epg_label.set_lines(2)
-        self.epg_label.set_text("EPG information goes here\nNOW: foo\nNEXT: bar")  # FIXME: Should this be all one string?
-        epg_box.pack_start(self.epg_label, expand=True, fill=True, padding=2)
+        self.epg_label.set_lines(2)  # This is how many lines it's allowed to *wrap*, it does not affect how many \n I can use
+        self.epg_label.set_text(EPG_TEMPLATE)  # FIXME: Should this be all one string?
+        epg_box.pack_start(self.epg_label, expand=True, fill=True, padding=0)
 
         self.channel_picker.connect('selection-change', self.on_channel_change)
         self.station_picker.connect('select', self.on_station_change)
 
     def on_channel_change(self, widget, channel_name):
         # FIXME: Get the NOW/NEXT info from EPG via the VFS
-        self.epg_label.set_text("{}\nNOW: n/a\nNEXT: n/a".format(channel_name))
+        self.epg_label.set_text(EPG_TEMPLATE.format(channel_title=channel_name, now_title="N/A", next_time="??:??", next_title="N/A 2: The revenge of the the unknown"))
 
     def on_station_change(self, widget, station_name):
         self.station_label.set_text(station_name)
