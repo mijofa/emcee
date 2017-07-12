@@ -14,6 +14,7 @@ style_provider = Gtk.CssProvider()
 css = b"""
 GtkLabel#station-name, GtkLabel#epg {
    font-size: 25px;
+   background-color: red;
 }
 GtkWindow {
    background-color: #729fcf;
@@ -47,7 +48,7 @@ Gtk.StyleContext.add_provider_for_screen(
 
 
 class ImageOrLabelButton(Gtk.Button):
-    def __init__(self, title, icon, click, args=()):
+    def __init__(self, title, icon, click=None, args=()):
         super().__init__()
         if icon:
             self.set_image(Gtk.Image.new_from_file(icon))
@@ -63,9 +64,19 @@ class ImageOrLabelButton(Gtk.Button):
             #label.set_ellipsize(Pango.EllipsizeMode.END)
             #label.set_lines(3)
         self.set_size_request(BUTTON_WIDTH, BUTTON_HEIGHT)
-        self.set_can_focus(False)
 
-        self.connect('clicked', click, *args)
+        # I'm using the focus attribute to style the button nicely, however I want to control what keys change the focus.
+        # Easiest way to do this was to make it disable taking focus, then temporarily enable it as I grab focus.
+        ## FIXME: This is ugly, maybe stop using focus and make my own style attribute
+        self.set_can_focus(False)
+        self.connect('focus-out-event', lambda self, _: self.set_can_focus(False))
+
+        if click:
+            self.connect('clicked', click, *args)
+
+    def grab_focus(self):
+        self.set_can_focus(True)
+        super().grab_focus()
 
 
 class ChannelPicker(Gtk.Stack):
@@ -86,8 +97,7 @@ class ChannelPicker(Gtk.Stack):
             layout.put(layout.box, 0, 0)
 
             for channel in layout.channels:
-                button = ImageOrLabelButton(title=channel.title, icon=channel.icon, click=lambda _: print(channel.title))
-                button.set_can_focus(False)
+                button = ImageOrLabelButton(title=channel.title, icon=channel.icon, click=self.select, args=(channel,))
                 layout.box.pack_start(button, expand=False, fill=False, padding=0)
 
             layout.adjustment = Gtk.Adjustment(value=0,
@@ -106,6 +116,7 @@ class ChannelPicker(Gtk.Stack):
                     OFFSET_LEFT + (BUTTON_WIDTH * -ind),
                     OFFSET_UPPER)
 
+        layout.box.get_children()[ind].grab_focus()
         layout.selected = layout.channels[ind]
         self.emit('selection-change', layout.selected.title)
 
@@ -123,8 +134,10 @@ class ChannelPicker(Gtk.Stack):
         # I could call the functon directly, but I felt it was "more right" to do it by triggering this signal
         self.get_visible_child().adjustment.emit('value-changed')
 
-    def select(self):
-        channel = self.get_visible_child().selected
+    def select(self, button=None, channel=None):
+        assert (not button and not channel) or (button and channel)
+        if not button and not channel:
+            channel = self.get_visible_child().selected
         print('Play', channel.title, channel.uri),
 
 
@@ -143,7 +156,7 @@ class StationPicker(Gtk.Layout):
         self.put(self.box, 0, 0)
 
         for station in self.stations:
-            button = ImageOrLabelButton(title=station.title, icon=station.icon, click=lambda _: print(station.title))
+            button = ImageOrLabelButton(title=station.title, icon=station.icon)
             button.set_can_focus(False)
             self.box.pack_start(button, expand=False, fill=False, padding=0)
 
@@ -151,10 +164,10 @@ class StationPicker(Gtk.Layout):
                                          lower=0,
                                          upper=len(self.stations) - 1,
                                          step_increment=1)
-        self.adjustment.connect('value-changed', self.value_changed)
-        self.value_changed(self.adjustment)
+        self.adjustment.connect('value-changed', self._value_changed)
+        self._value_changed(self.adjustment)
 
-    def value_changed(self, adjustment):
+    def _value_changed(self, adjustment):
         # List indices must be an int, however the adjustment property values are floats.
         # Since I'm explicitly setting the adjustment properties, I know they are going to be rounded numbers
         ind = int(adjustment.get_value())
