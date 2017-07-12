@@ -31,7 +31,21 @@ data = {'ABC': ['ABC2  ABC4',
                 'SBS Radio 2',
                 'SBS Radio 3',
                 'SBS TWO'],
-        'Seven Network': ['7 Digital', '7flix', '7mate', '7TWO', 'Racing']}
+        'Seven Network': ['7 Digital', '7flix', '7mate', '7TWO', 'Racing'],
+        'WIN Television': ['GOLD',
+                           'WIN Canberra HD',
+                           'ONE Canberra',
+                           'TVSN',
+                           'ELEVEN Canberra',
+                           'WIN Canberra'],
+        'Southern Cross': ['9Life',
+                           'Nine Canberra',
+                           'Aspire',
+                           '9Go!',
+                           '9HD Canberra',
+                           'YESSHOP',
+                           '9Gem'],
+        }
 
 
 class VirtualFilesystem():
