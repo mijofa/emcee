@@ -5,6 +5,7 @@ import emcee.vfs
 # I'm not really sure how much larger as I never bothered to look for the numbers,
 # but the Button has it's own border that it puts around the icons that needs to be accounted for.
 BUTTON_SIZE = (150, 150)  # FIXME: This is based on the current size of the channel gifs
+OFFSETS = (BUTTON_SIZE[0] * 0.5, BUTTON_SIZE[1] * 0.5)
 
 # FIXME: Move this stylesheet out into a CSS file and import that as a theme in the application
 style_provider = Gtk.CssProvider()
@@ -46,48 +47,6 @@ Gtk.StyleContext.add_provider_for_screen(
 )
 
 
-def scroller_resize(*args, **kwargs):
-    pass
-
-
-class BoundlessAdjustment(Gtk.Adjustment):
-
-    def __init__(self, orientation):
-        assert orientation in ('vertical', 'horizontal')
-        self.size_index = 0 if orientation == 'vertical' else 1
-        super().__init__(-150, -150)
-        self.connect('notify::lower', self.on_lower_change)
-        self.set_lower(-150)
-
-    def on_lower_change(self, widget, lower):
-        self.lower = GObject.Property(type=float, default=-150, flags=GObject.PARAM_READABLE)
-        prop = self.list_properties()[1]
-        print(dir(prop))
-        #['__doc__', '__gtype__', 'blurb', 'default_value', 'epsilon', 'flags', 'maximum', 'minimum', 'name', 'nick', 'owner_type', 'value_type']
-
-    def initialise(self, *args):
-        print(args)
-#        new_lower = GObject.Property(default=-150, flags=GObject.PARAM_READABLE, nick='lower', type=float)
-#        print(self.override_property(1, 'lower'))
-#        print(new_lower)
-#    def do_changed(self, *args):
-#        ## The upper/lower properties keep changing rather unpredictably, reset them afterwards.
-#        self.set_lower(BUTTON_SIZE[self.size_index] * -1)
-#        self.set_step_increment(BUTTON_SIZE[self.size_index])
-#    def do_value_changed(self, *args):
-#        print('value changed', args)
-#        print(self.get_properties())
-#    def set_lower(self, *args):
-#        super().set_lower(-150)
-#        print('setting lower', args)
-#    def set_upper(self, *args):
-#        print('setting upper', args)
-#    def set_value(self, *args):
-#        print('setting value', args)
-#        super().set_value(*args)
-#        print('set value', super().get_value())
-
-
 class ImageOrLabelButton(Gtk.Button):
     def __init__(self, title, icon, click, args=()):
         super().__init__()
@@ -110,6 +69,51 @@ class ImageOrLabelButton(Gtk.Button):
         self.connect('clicked', click, *args)
 
 
+class SingleChannelPicker(Gtk.Layout):
+    __gsignals__ = {
+        'select': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, (str,)),
+    }
+
+    def __init__(self, channels):
+        # Create the horizontal scroll window
+        super().__init__()
+        self.channels = channels
+
+        # It's easier to move one box around than it is to have move around all the buttons themselves.
+        self.box = Gtk.HBox()
+        self.put(self.box, 0, 0)
+
+        for channel in self.channels:
+            button = ImageOrLabelButton(title=channel.title, icon=channel.icon, click=lambda _: print(channel.title))
+            button.set_can_focus(False)
+            self.box.pack_start(button, expand=False, fill=False, padding=0)
+
+        self.adjustment = Gtk.Adjustment(value=0,
+                                         lower=0,
+                                         upper=len(self.channels) - 1,
+                                         step_increment=1)
+        self.adjustment.connect('value-changed', self.value_changed)
+        self.value_changed(self.adjustment)
+
+    def value_changed(self, adjustment):
+        # List indices must be an int, however the adjustment property values are floats.
+        # Since I'm explicitly setting the adjustment properties, I know they are going to be rounded numbers
+        ind = int(adjustment.get_value())
+
+        self.move(self.box,
+                  OFFSETS[0] + (BUTTON_SIZE[0] * -ind),
+                  OFFSETS[1])
+
+        channel = self.channels[ind]
+        self.emit('select', channel.uri)
+
+    def next(self, *args):
+        self.adjustment.set_value(self.adjustment.get_value() + 1)
+
+    def prev(self, *args):
+        self.adjustment.set_value(self.adjustment.get_value() - 1)
+
+
 class ChannelPicker(Gtk.Stack):
     __gsignals__ = {
         'select-channel': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, (str,)),
@@ -118,77 +122,14 @@ class ChannelPicker(Gtk.Stack):
     def __init__(self, stations):
         super().__init__()
 
-#        # The stack that displays when not selected
-#        station_box = Gtk.VBox()
-#        self.add_named(station_box, "unselected")
-#        # Empty widget of the same size as the button itself,
-#        # this allows the selected station to have an extra button above the selected one.
-#        spacer = Gtk.DrawingArea()
-#        spacer.set_size_request(*BUTTON_SIZE)
-#        station_box.pack_start(spacer, expand=False, fill=False, padding=0)
-#        # The button for selecting the station itself
-#        station_box.pack_start(
-#            ImageOrLabelButton(title=station.title, icon=station.icon, click=self.select_station),
-#            expand=False,
-#            fill=False,
-#            padding=0
-#        )
-
         for station in stations:
-            # FIXME: Remove the upper/lower bounds on this scroller, set the step & page size to match the BUTTON_SIZE.
-            #        Somehow process the scrolling using arrow keys.
-            #        Note sure whether I should bind the arrows to scrolling then do things when scrolling happens,
-            #        or steal the arrows and do the scrolling myself.
-            scroller = Gtk.ScrolledWindow(
-                hadjustment=BoundlessAdjustment('horizontal'),
-                # Only scroll vertically
-                hscrollbar_policy=Gtk.PolicyType.AUTOMATIC,
-                vscrollbar_policy=Gtk.PolicyType.NEVER,
-            )
-            scroller.title = station.title
-            scroller.emcee_initialised = False  # Used so size-allocate knows whether to set the default base scroll level
-            scroller.get_vadjustment().connect('changed', scroller_resize, 'horizontal')
-#            scroller.connect('size-allocate', scroller_resize, 'vertical')
-            # FIXME: This is a workaround for PolicyType.EXTERNAL not coming in until 3.16
-            #        https://lazka.github.io/pgi-docs/Gtk-3.0/enums.html#Gtk.PolicyType.AUTOMATIC
-#            scroller.get_hscrollbar().set_visible(False)
-            self.add_named(scroller, station.title)
-
-            channels_box = Gtk.HBox()
-            scroller.add(channels_box)
-            scroller.channels = station.channels
-            for channel in scroller.channels:
-                channels_box.pack_start(
-                    ImageOrLabelButton(title=channel.title, icon=channel.icon, click=self.select_channel, args=(channel,)),
-                    expand=False,
-                    fill=False,
-                    padding=0
-                )
-
-            # FIXME: Figure out the adjustment upper/lower bounds!
-            #        This spacer makes the ScrolledWindow much longer than it looks,
-            #        forcibly increasing the upper bounds of the Adjustment
-            spacer = Gtk.DrawingArea()
-            spacer.set_size_request(Gdk.Screen.get_default().get_height(), -1)
-            channels_box.pack_start(spacer, expand=True, fill=True, padding=0)
-
-#    def select_station(self, _):
-#        # _ is the widget that triggered the event, I don't actually care about it
-#        print('Selected', self.station.title),
-#        self.emit('select-station')
+            self.add_named(SingleChannelPicker(station.channels), station.title)
 
     def next(self, *args):
-        adj = self.get_visible_child().get_hadjustment()
-        adj.set_value(adj.get_value() + BUTTON_SIZE[0])
-        cur_pos = int((adj.get_value() + BUTTON_SIZE[0]) / BUTTON_SIZE[0])
-        self.emit('select-channel', self.get_visible_child().channels[cur_pos].title)
+        self.get_visible_child().next()
 
     def prev(self, *args):
-        adj = self.get_visible_child().get_hadjustment()
-        print(adj.get_lower())
-        adj.set_value(adj.get_value() - BUTTON_SIZE[0])
-        cur_pos = int((adj.get_value() + BUTTON_SIZE[0]) / BUTTON_SIZE[0])
-        self.emit('select-channel', self.get_visible_child().channels[cur_pos].title)
+        self.get_visible_child().prev()
 
     def change_station(self, widget, station):
         print(self.set_visible_child_name(station))
@@ -199,56 +140,49 @@ class ChannelPicker(Gtk.Stack):
         print('Play', channel.title, channel.uri),
 
 
-class StationPicker(Gtk.ScrolledWindow):
+class StationPicker(Gtk.Layout):
     __gsignals__ = {
-        'select-station': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, (str,)),
+        'select': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, (str,)),
     }
 
     def __init__(self, stations):
         # Create the horizontal scroll window
-        super().__init__(
-            # Only scroll horizontally, the StationColumn has it's own vertical scroller
-            vscrollbar_policy=Gtk.PolicyType.AUTOMATIC,
-            hscrollbar_policy=Gtk.PolicyType.NEVER,
-        )
-        self.title = "stations"
-        self.emcee_initialised = False  # Used so size-allocate knows whether to set the default base scroll level
-        self.get_hadjustment().connect('changed', scroller_resize, 'vertical')
-#        self.connect('size-allocate', scroller_resize, 'horizontal')
-        # FIXME: This is a workaround for PolicyType.EXTERNAL not coming in until 3.16
-        #        https://lazka.github.io/pgi-docs/Gtk-3.0/enums.html#Gtk.PolicyType.AUTOMATIC
-        self.get_vscrollbar().set_visible(False)
-
-        # Despite being a bunch of VBoxes inside a HBox, Grid will not work in this case.
-        # This is because the size of the 2nd column is intended to simply take up all the window space it can,
-        # this can't be done with the Grid widget
-        box = Gtk.VBox()
-        self.add(box)
-
+        super().__init__()
         self.stations = stations
-        for station in self.stations:
-            b = ImageOrLabelButton(title=station.title, icon=station.icon, click=lambda _: print(station.title))
-            b.set_can_focus(False)
-            box.pack_start(b, expand=False, fill=False, padding=0)
 
-        # FIXME: Figure out the adjustment upper/lower bounds!
-        #        This spacer makes the ScrolledWindow much longer than it looks,
-        #        forcibly increasing the upper bounds of the Adjustment
-        spacer = Gtk.DrawingArea()
-        spacer.set_size_request(-1, Gdk.Screen.get_default().get_width())
-        box.pack_start(spacer, expand=True, fill=True, padding=0)
+        # It's easier to move one box around than it is to have move around all the buttons themselves.
+        self.box = Gtk.VBox()
+        self.put(self.box, 0, 0)
+
+        for station in self.stations:
+            button = ImageOrLabelButton(title=station.title, icon=station.icon, click=lambda _: print(station.title))
+            button.set_can_focus(False)
+            self.box.pack_start(button, expand=False, fill=False, padding=0)
+
+        self.adjustment = Gtk.Adjustment(value=0,
+                                         lower=0,
+                                         upper=len(self.stations) - 1,
+                                         step_increment=1)
+        self.adjustment.connect('value-changed', self.value_changed)
+        self.value_changed(self.adjustment)
+
+    def value_changed(self, adjustment):
+        # List indices must be an int, however the adjustment property values are floats.
+        # Since I'm explicitly setting the adjustment properties, I know they are going to be rounded numbers
+        ind = int(adjustment.get_value())
+
+        self.move(self.box,
+                  OFFSETS[0],
+                  OFFSETS[1] + (BUTTON_SIZE[1] * -ind))
+
+        station = self.stations[ind]
+        self.emit('select', station.title)
 
     def next(self, *args):
-        adj = self.get_vadjustment()
-        adj.set_value(adj.get_value() + BUTTON_SIZE[1])
-        cur_pos = int((adj.get_value() + BUTTON_SIZE[1]) / BUTTON_SIZE[1])
-        self.emit('select-station', self.stations[cur_pos].title)
+        self.adjustment.set_value(self.adjustment.get_value() + 1)
 
     def prev(self, *args):
-        adj = self.get_vadjustment()
-        adj.set_value(adj.get_value() - BUTTON_SIZE[1])
-        cur_pos = int((adj.get_value() + BUTTON_SIZE[1]) / BUTTON_SIZE[1])
-        self.emit('select-station', self.stations[cur_pos].title)
+        self.adjustment.set_value(self.adjustment.get_value() - 1)
 
 
 class StreamSelector(Gtk.Overlay):
@@ -267,11 +201,10 @@ class StreamSelector(Gtk.Overlay):
 ##        station_label_hbox.pack_start(station_spacer, expand=False, fill=False, padding=0)
 
         ## Station scroller
-        station_spacer = Gtk.DrawingArea()
-        station_spacer.set_size_request(*BUTTON_SIZE)
-        station_box.pack_start(station_spacer, expand=False, fill=False, padding=0)
         self.station_picker = StationPicker(stations)
         station_box.pack_start(self.station_picker, expand=False, fill=False, padding=0)
+        # Without setting a size_request, the label will expand and fill over the picker
+        self.station_picker.set_size_request(BUTTON_SIZE[0] + OFFSETS[0], -1)
         ## Station label to sit above the channel scroller
         self.station_label = Gtk.Label(
             name="station-name",
@@ -288,11 +221,10 @@ class StreamSelector(Gtk.Overlay):
         ## Channel scroller
         channel_box = Gtk.VBox()
         self.add_overlay(channel_box)
-        channel_spacer = Gtk.DrawingArea()
-        channel_spacer.set_size_request(*BUTTON_SIZE)
-        channel_box.pack_start(channel_spacer, expand=False, fill=False, padding=0)
         self.channel_picker = ChannelPicker(stations)
         channel_box.pack_start(self.channel_picker, expand=False, fill=False, padding=0)
+        # Without setting a size_request, the label will expand and fill over the picker
+        self.channel_picker.set_size_request(-1, BUTTON_SIZE[1] + OFFSETS[1])
         ## EPG info to go below the channel scroller
         epg_box = Gtk.HBox()
         channel_box.pack_start(epg_box, expand=False, fill=False, padding=0)
@@ -313,9 +245,7 @@ class StreamSelector(Gtk.Overlay):
         epg_box.pack_start(self.epg_label, expand=True, fill=True, padding=2)
 
         self.channel_picker.connect('select-channel', self.change_channel)
-        self.station_picker.connect('select-station', self.change_station)
-
-        self.connect('key-press-event', self.on_key_press)
+        self.station_picker.connect('select', self.change_station)
 
     def change_channel(self, widget, channel_name):
         # FIXME: Get the NOW/NEXT info from EPG via the VFS
@@ -325,17 +255,17 @@ class StreamSelector(Gtk.Overlay):
         self.station_label.set_text(station_name)
         self.channel_picker.change_station(widget, station_name)
 
-    def on_key_press(self, widget, event):
-        keyname = Gdk.keyval_name(event.keyval)
-        print('press', keyname)
-        if keyname == 'Left':
-            self.channel_picker.prev()
-        elif keyname == 'Right':
-            self.channel_picker.next()
-        elif keyname == 'Up':
-            self.station_picker.prev()
-        elif keyname == 'Down':
-            self.station_picker.next()
+    def prev_channel(self):
+        self.channel_picker.prev()
+
+    def next_channel(self):
+        self.channel_picker.next()
+
+    def prev_station(self):
+        self.station_picker.prev()
+
+    def next_station(self):
+        self.station_picker.next()
 
 
 if __name__ == '__main__':
@@ -343,7 +273,26 @@ if __name__ == '__main__':
     window.connect("destroy", Gtk.main_quit)  # Quit & cleanup when closed
     ss = StreamSelector()
     window.add(ss)
-    window.set_size_request(BUTTON_SIZE[0] * 4.5, BUTTON_SIZE[1] * 3.5)
+
+    def on_key_press(widget, event):
+        keyname = Gdk.keyval_name(event.keyval)
+        print('press', keyname)
+        if keyname == 'Escape':
+            Gtk.main_quit()
+        elif keyname == 'Up':
+            ss.prev_station()
+        elif keyname == 'Down':
+            ss.next_station()
+        elif keyname == 'Left':
+            ss.prev_channel()
+        elif keyname == 'Right':
+            ss.next_channel()
+    window.connect('key-press-event', on_key_press)
+
+    min_height = OFFSETS[0] + (BUTTON_SIZE[0] * 2)
+    min_width = OFFSETS[1] + (BUTTON_SIZE[1] * 3)
+    window.set_size_request(min_width, min_height)
+    window.set_default_size(BUTTON_SIZE[0] * 4.5, BUTTON_SIZE[1] * 3.5)
     window.show_all()
 
     Gtk.main()
