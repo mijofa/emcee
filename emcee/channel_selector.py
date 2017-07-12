@@ -4,8 +4,10 @@ import emcee.vfs
 # Note, BUTTON_SIZE should be slightly larger than the icon images themselves.
 # I'm not really sure how much larger as I never bothered to look for the numbers,
 # but the Button has it's own border that it puts around the icons that needs to be accounted for.
-BUTTON_SIZE = (150, 150)  # FIXME: This is based on the current size of the channel gifs
-OFFSETS = (BUTTON_SIZE[0] * 0.5, BUTTON_SIZE[1] * 0.5)
+BUTTON_WIDTH = 150  # FIXME: This is based on the current size of the channel gifs
+BUTTON_HEIGHT = 150  # FIXME: This is based on the current size of the channel gifs
+OFFSET_UPPER = BUTTON_HEIGHT * 0.75
+OFFSET_LEFT = BUTTON_WIDTH * 0.5
 
 # FIXME: Move this stylesheet out into a CSS file and import that as a theme in the application
 style_provider = Gtk.CssProvider()
@@ -60,7 +62,7 @@ class ImageOrLabelButton(Gtk.Button):
             #label.set_line_wrap(True)
             #label.set_ellipsize(Pango.EllipsizeMode.END)
             #label.set_lines(3)
-        self.set_size_request(*BUTTON_SIZE)
+        self.set_size_request(BUTTON_WIDTH, BUTTON_HEIGHT)
         self.set_can_focus(False)
 
         self.connect('clicked', click, *args)
@@ -101,8 +103,8 @@ class ChannelPicker(Gtk.Stack):
         ind = int(adjustment.get_value())
 
         layout.move(layout.box,
-                    OFFSETS[0] + (BUTTON_SIZE[0] * -ind),
-                    OFFSETS[1])
+                    OFFSET_LEFT + (BUTTON_WIDTH * -ind),
+                    OFFSET_UPPER)
 
         layout.selected = layout.channels[ind]
         self.emit('selection-change', layout.selected.title)
@@ -158,8 +160,8 @@ class StationPicker(Gtk.Layout):
         ind = int(adjustment.get_value())
 
         self.move(self.box,
-                  OFFSETS[0],
-                  OFFSETS[1] + (BUTTON_SIZE[1] * -ind))
+                  OFFSET_LEFT,
+                  OFFSET_UPPER + (BUTTON_HEIGHT * -ind))
 
         station = self.stations[ind]
         self.emit('select', station.title)
@@ -184,7 +186,7 @@ class StreamSelector(Gtk.Overlay):
         self.station_picker = StationPicker(stations)
         station_box.pack_start(self.station_picker, expand=False, fill=False, padding=0)
         # Without setting a size_request, the label will expand and fill over the picker
-        self.station_picker.set_size_request(BUTTON_SIZE[0] + OFFSETS[0], -1)
+        self.station_picker.set_size_request(BUTTON_WIDTH + OFFSET_LEFT, -1)
         ## Station label to sit above the channel scroller
         self.station_label = Gtk.Label(
             name="station-name",
@@ -208,7 +210,7 @@ class StreamSelector(Gtk.Overlay):
         self.channel_picker = ChannelPicker(stations)
         channel_box.pack_start(self.channel_picker, expand=False, fill=False, padding=0)
         # Without setting a size_request, the label will expand and fill over the picker
-        self.channel_picker.set_size_request(-1, BUTTON_SIZE[1] + OFFSETS[1])
+        self.channel_picker.set_size_request(-1, BUTTON_HEIGHT + OFFSET_UPPER)
 
         ## Functions for controlling the channel menu
         self.prev_channel = self.channel_picker.prev
@@ -220,7 +222,7 @@ class StreamSelector(Gtk.Overlay):
         channel_box.pack_start(epg_box, expand=False, fill=False, padding=0)
         # Spacer to keep it to the right of the station scroller.
         epg_spacer = Gtk.DrawingArea()
-        epg_spacer.set_size_request(BUTTON_SIZE[0] * 2, BUTTON_SIZE[1])
+        epg_spacer.set_size_request(BUTTON_WIDTH * 2, BUTTON_HEIGHT)
         epg_box.pack_start(epg_spacer, expand=False, fill=False, padding=2)
         self.epg_label = Gtk.Label(
             name="epg",
@@ -268,10 +270,10 @@ if __name__ == '__main__':
             ss.select_channel()
     window.connect('key-press-event', on_key_press)
 
-    min_height = OFFSETS[0] + (BUTTON_SIZE[0] * 2)
-    min_width = OFFSETS[1] + (BUTTON_SIZE[1] * 3)
+    min_height = OFFSET_UPPER + (BUTTON_WIDTH * 2)
+    min_width = OFFSET_LEFT + (BUTTON_HEIGHT * 3)
     window.set_size_request(min_width, min_height)
-    window.set_default_size(BUTTON_SIZE[0] * 4.5, BUTTON_SIZE[1] * 3.5)
+    window.set_default_size(BUTTON_WIDTH * 4.5, BUTTON_HEIGHT * 3.5)
     window.show_all()
 
     Gtk.main()
