@@ -16,9 +16,6 @@ GtkLabel#station-name, GtkLabel#epg {
 GtkWindow {
    background-color: #729fcf;
 }
-GtkScrolledWindow {
-   background-color: red;
-}
 GtkButton {
    font-size: 50px;
    border-radius: 99999px;  /* FIXME: This is a stupid number to put here */
@@ -69,74 +66,63 @@ class ImageOrLabelButton(Gtk.Button):
         self.connect('clicked', click, *args)
 
 
-class SingleChannelPicker(Gtk.Layout):
-    __gsignals__ = {
-        'select': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, (str,)),
-    }
-
-    def __init__(self, channels):
-        # Create the horizontal scroll window
-        super().__init__()
-        self.channels = channels
-
-        # It's easier to move one box around than it is to have move around all the buttons themselves.
-        self.box = Gtk.HBox()
-        self.put(self.box, 0, 0)
-
-        for channel in self.channels:
-            button = ImageOrLabelButton(title=channel.title, icon=channel.icon, click=lambda _: print(channel.title))
-            button.set_can_focus(False)
-            self.box.pack_start(button, expand=False, fill=False, padding=0)
-
-        self.adjustment = Gtk.Adjustment(value=0,
-                                         lower=0,
-                                         upper=len(self.channels) - 1,
-                                         step_increment=1)
-        self.adjustment.connect('value-changed', self.value_changed)
-        self.value_changed(self.adjustment)
-
-    def value_changed(self, adjustment):
-        # List indices must be an int, however the adjustment property values are floats.
-        # Since I'm explicitly setting the adjustment properties, I know they are going to be rounded numbers
-        ind = int(adjustment.get_value())
-
-        self.move(self.box,
-                  OFFSETS[0] + (BUTTON_SIZE[0] * -ind),
-                  OFFSETS[1])
-
-        channel = self.channels[ind]
-        self.emit('select', channel.uri)
-
-    def next(self, *args):
-        self.adjustment.set_value(self.adjustment.get_value() + 1)
-
-    def prev(self, *args):
-        self.adjustment.set_value(self.adjustment.get_value() - 1)
-
-
 class ChannelPicker(Gtk.Stack):
     __gsignals__ = {
-        'select-channel': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, (str,)),
+        'selection-change': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, (str,)),
     }
 
     def __init__(self, stations):
         super().__init__()
 
         for station in stations:
-            self.add_named(SingleChannelPicker(station.channels), station.title)
+            layout = Gtk.Layout()
+            self.add_named(layout, station.title)
+            layout.channels = station.channels
+
+            # It's easier to move one box around than it is to have move around all the buttons themselves.
+            layout.box = Gtk.HBox()
+            layout.put(layout.box, 0, 0)
+
+            for channel in layout.channels:
+                button = ImageOrLabelButton(title=channel.title, icon=channel.icon, click=lambda _: print(channel.title))
+                button.set_can_focus(False)
+                layout.box.pack_start(button, expand=False, fill=False, padding=0)
+
+            layout.adjustment = Gtk.Adjustment(value=0,
+                                               lower=0,
+                                               upper=len(layout.channels) - 1,
+                                               step_increment=1)
+            layout.adjustment.connect('value-changed', self._value_changed, layout)
+            self._value_changed(layout.adjustment, layout)
+
+    def _value_changed(self, adjustment, layout):
+        # List indices must be an int, however the adjustment property values are floats.
+        # Since I'm explicitly setting the adjustment properties, I know they are going to be rounded numbers
+        ind = int(adjustment.get_value())
+
+        layout.move(layout.box,
+                    OFFSETS[0] + (BUTTON_SIZE[0] * -ind),
+                    OFFSETS[1])
+
+        layout.selected = layout.channels[ind]
+        self.emit('selection-change', layout.selected.title)
 
     def next(self, *args):
-        self.get_visible_child().next()
+        adjustment = self.get_visible_child().adjustment
+        adjustment.set_value(adjustment.get_value() + 1)
 
     def prev(self, *args):
-        self.get_visible_child().prev()
+        adjustment = self.get_visible_child().adjustment
+        adjustment.set_value(adjustment.get_value() - 1)
 
-    def change_station(self, widget, station):
-        print(self.set_visible_child_name(station))
-        print(widget, station)
+    def change_station(self, station):
+        self.set_visible_child_name(station)
+        # Trigger the _self.value_changed function to make sure current channel selections get updated
+        # I could call the functon directly, but I felt it was "more right" to do it by triggering this signal
+        self.get_visible_child().adjustment.emit('value-changed')
 
-    def select_channel(self, _, channel):
-        # _ is the widget that triggered the event, I don't actually care about it
+    def select(self):
+        channel = self.get_visible_child().selected
         print('Play', channel.title, channel.uri),
 
 
@@ -194,12 +180,6 @@ class StreamSelector(Gtk.Overlay):
         station_box = Gtk.HBox()
         self.add(station_box)
 
-#        station_label_box = Gtk.VBox()
-#        station_box.pack_start(station_label_box, expand=False, fill=False, padding=0)
-##        station_spacer = Gtk.DrawingArea()
-##        station_spacer.set_size_request(BUTTON_SIZE[0] * 2, BUTTON_SIZE[1])
-##        station_label_hbox.pack_start(station_spacer, expand=False, fill=False, padding=0)
-
         ## Station scroller
         self.station_picker = StationPicker(stations)
         station_box.pack_start(self.station_picker, expand=False, fill=False, padding=0)
@@ -218,6 +198,10 @@ class StreamSelector(Gtk.Overlay):
         self.station_label.set_text("Station title")
         station_box.pack_start(self.station_label, expand=True, fill=True, padding=0)
 
+        ## Functions for controlling the station menu
+        self.prev_station = self.station_picker.prev
+        self.next_station = self.station_picker.next
+
         ## Channel scroller
         channel_box = Gtk.VBox()
         self.add_overlay(channel_box)
@@ -225,6 +209,12 @@ class StreamSelector(Gtk.Overlay):
         channel_box.pack_start(self.channel_picker, expand=False, fill=False, padding=0)
         # Without setting a size_request, the label will expand and fill over the picker
         self.channel_picker.set_size_request(-1, BUTTON_SIZE[1] + OFFSETS[1])
+
+        ## Functions for controlling the channel menu
+        self.prev_channel = self.channel_picker.prev
+        self.next_channel = self.channel_picker.next
+        self.select_channel = self.channel_picker.select
+
         ## EPG info to go below the channel scroller
         epg_box = Gtk.HBox()
         channel_box.pack_start(epg_box, expand=False, fill=False, padding=0)
@@ -244,28 +234,16 @@ class StreamSelector(Gtk.Overlay):
         self.epg_label.set_text("EPG information goes here\nNOW: foo\nNEXT: bar")  # FIXME: Should this be all one string?
         epg_box.pack_start(self.epg_label, expand=True, fill=True, padding=2)
 
-        self.channel_picker.connect('select-channel', self.change_channel)
-        self.station_picker.connect('select', self.change_station)
+        self.channel_picker.connect('selection-change', self.on_channel_change)
+        self.station_picker.connect('select', self.on_station_change)
 
-    def change_channel(self, widget, channel_name):
+    def on_channel_change(self, widget, channel_name):
         # FIXME: Get the NOW/NEXT info from EPG via the VFS
         self.epg_label.set_text("{}\nNOW: n/a\nNEXT: n/a".format(channel_name))
 
-    def change_station(self, widget, station_name):
+    def on_station_change(self, widget, station_name):
         self.station_label.set_text(station_name)
-        self.channel_picker.change_station(widget, station_name)
-
-    def prev_channel(self):
-        self.channel_picker.prev()
-
-    def next_channel(self):
-        self.channel_picker.next()
-
-    def prev_station(self):
-        self.station_picker.prev()
-
-    def next_station(self):
-        self.station_picker.next()
+        self.channel_picker.change_station(station_name)
 
 
 if __name__ == '__main__':
@@ -276,7 +254,6 @@ if __name__ == '__main__':
 
     def on_key_press(widget, event):
         keyname = Gdk.keyval_name(event.keyval)
-        print('press', keyname)
         if keyname == 'Escape':
             Gtk.main_quit()
         elif keyname == 'Up':
@@ -287,6 +264,8 @@ if __name__ == '__main__':
             ss.prev_channel()
         elif keyname == 'Right':
             ss.next_channel()
+        elif keyname in ('space', 'Return'):
+            ss.select_channel()
     window.connect('key-press-event', on_key_press)
 
     min_height = OFFSETS[0] + (BUTTON_SIZE[0] * 2)
