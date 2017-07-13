@@ -4,6 +4,8 @@
 import os
 import collections
 
+TVDIR = '/home/mike/Videos/tv'
+
 Station = collections.namedtuple('Station', 'title icon channels')
 Channel = collections.namedtuple('Channel', 'title icon epg_brief uri')
 
@@ -55,18 +57,29 @@ class VirtualFilesystem():
 
             station_channels = []
             for channel_title in data.get(station_title):
-                icon_filename = '/home/mike/Videos/tv/{}/{}.gif'.format(station_title, channel_title)
+                if os.path.isfile('{}/{}/{}.svg'.format(TVDIR, station_title, channel_title)):
+                    icon_filename = '{}/{}/{}.svg'.format(TVDIR, station_title, channel_title)
+                elif os.path.isfile('{}/{}/{}.gif'.format(TVDIR, station_title, channel_title)):
+                    icon_filename = '{}/{}/{}.gif'.format(TVDIR, station_title, channel_title)
+                else:
+                    icon_filename = None
                 station_channels.append(Channel(
                     title=channel_title,
-                    icon=icon_filename if os.path.isfile(icon_filename) else None,  # FIXME: Make this use a file-object or similar
+                    icon=icon_filename,  # FIXME: Make this use a file-object or similar
                     epg_brief=('now', 'next'),
                     uri='file:///dev/null',
                 ))
 
-            icon_filename = '/home/mike/Videos/tv/{}/folder.gif'.format(station_title)
+            if os.path.isfile('{}/{}/folder.svg'.format(TVDIR, station_title)):
+                icon_filename = '{}/{}/folder.svg'.format(TVDIR, station_title)
+            elif os.path.isfile('{}/{}/folder.gif'.format(TVDIR, station_title)):
+                icon_filename = '{}/{}/folder.gif'.format(TVDIR, station_title)
+            else:
+                icon_filename = None
+
             stations.append(Station(
                 title=station_title,
-                icon=icon_filename if os.path.isfile(icon_filename) else None,  # FIXME: Make this use a file-object or similar
+                icon=icon_filename,  # FIXME: Make this use a file-object or similar
                 channels=station_channels,
             ))
 
