@@ -14,31 +14,54 @@ EPG_TEMPLATE = "{channel_title}\nCurrently playing:\n  {now_title}\nNext ({next_
 # FIXME: Move this stylesheet out into a CSS file and import that as a theme in the application
 style_provider = Gtk.CssProvider()
 css = b"""
-GtkLabel#station-name, GtkLabel#epg {
-    border-style: solid;
-    border-color: green;
-    border-width: 20px;
-    font-size: 20px;
-    background-color: red;
-}
 GtkWindow {
     background-color: #729fcf;
 }
-GtkButton {
+
+GtkLabel#station-name, GtkLabel#epg {
+    padding: 20px 0 0 20px;
+    font-size: 20px;
+    background-color: red;
+}
+
+.button {
     font-size: 50px;
     border-radius: 99999px;  /* FIXME: This is a stupid number to put here */
+
+    /* Remove the button style entirely and just display the image */
+    box-shadow: none;
+    border-style: none;
+    background-image: none;
 }
+
+GtkImage {
+    box-shadow: none;
+    border-style: none;
+    border-image: none;
+    background-image: none;
+    background-color: transparent;
+}
+
 .button.inactive {
-    /* I wanted to make inactive icons smaller, but can't change size of objects in the CSS */
+    /* I wanted to make inactive icons smaller, but CSS can't be used to change the size of objects.
+     * I think this can be done with a background image, but not worth the effort
+     */
+    opacity: 0.4;
+/*    -gtk-image-effect: dim; */
+/*    background-color: #729fcf; */
 }
-GtkStack GtkLayout .button.active {
+#ChannelPicker * .button.active {
     /* GtkButton by default has a background-image.
      *  That must be removed before we can change the background-color
      */
-    background-image: none;
-    background-color: red;
+/*    -gtk-image-effect: highlight; */
+/*    background-color: #204a87; */
 }
-.invisible {
+.button:hover, .button:active {
+/*    -gtk-image-effect: highlight/dim/none; */
+}
+#StationPicker * .button.active {
+    /* This button is directly behind the active ChannelPicker, make it invisible */
     opacity: 0;
 }
 """
@@ -74,6 +97,11 @@ class ImageOrLabelButton(Gtk.Button):
         if click:
             self.connect('clicked', click, *args)
 
+    def do_clicked(self, *args):
+        picker = self.get_parent().get_parent()
+        index = picker.buttons.index(self)
+        picker.adjustment.set_value(index)
+
 
 class Picker(Gtk.Layout):
     # Generic scroller for any number of itmes in a single row or column.
@@ -81,12 +109,12 @@ class Picker(Gtk.Layout):
         'focus-change': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, (GObject.TYPE_PYOBJECT,)),
     }
 
-    def __init__(self, orientation, items):
+    def __init__(self, orientation, items, *args, **kwargs):
         assert orientation in ('horizontal', 'vertical')
         self.orientation = orientation
         self.items = items
 
-        super().__init__()
+        super().__init__(*args, **kwargs)
 
         # It's easier to move one box around than it is to have move around all the buttons themselves.
         if self.orientation == 'vertical':
@@ -114,12 +142,12 @@ class Picker(Gtk.Layout):
 
         if self.orientation == 'vertical':
             self.move(self.box,
-                      OFFSET_LEFT,
+                      0,
                       OFFSET_UPPER + (BUTTON_HEIGHT * -ind))
         elif self.orientation == 'horizontal':
             self.move(self.box,
                       OFFSET_LEFT + (BUTTON_WIDTH * -ind),
-                      OFFSET_UPPER)
+                      0)
 
         self.selected = self.items[ind]
         self.emit('focus-change', self.selected)
@@ -150,24 +178,9 @@ class Picker(Gtk.Layout):
 
 
 class StationPicker(Picker):
-    def __init__(self, stations):
-        super().__init__(orientation='vertical', items=stations)
-
-    def do_focus_change(self, item):
-        ind = self.items.index(item)
-        self.buttons[ind].get_style_context().add_class('invisible')
-
-        # FIXME: This handler_id thing is a horrible hack
-        # Since lists are immutable, I'm able to abuse the shit out of it to get the result of self.connect into it's own arguments
-        handler_id = []
-        handler_id.append(self.connect('focus-change', self._remove_focus, self.buttons[ind], handler_id))
-
-    def _remove_focus(self, widget, item, button, handler_id):
-        # item is the newly focussed item, so it can't be used to find button
-        button.get_style_context().remove_class('invisible')
-
-        # len(handler_id) should only ever be exactly 1, I'm expanding it here to get an exception if that's not the case
-        self.disconnect(*handler_id)
+    def __init__(self, stations, *args, **kwargs):
+        super().__init__(orientation='vertical', items=stations, *args, **kwargs)
+        self.set_name("StationPicker")
 
 
 class ChannelPicker(Gtk.Stack):
@@ -178,8 +191,9 @@ class ChannelPicker(Gtk.Stack):
         'focus-change': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, (GObject.TYPE_PYOBJECT,)),
     }
 
-    def __init__(self, stations):
-        super().__init__()
+    def __init__(self, stations, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.set_name("ChannelPicker")
 
         for station in stations:
             picker = Picker('horizontal', station.channels)
@@ -207,19 +221,42 @@ class ChannelPicker(Gtk.Stack):
 
 
 class StreamSelector(Gtk.Overlay):
+    __gsignals__ = {
+        'up': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
+    }
+
     def __init__(self):
         super().__init__()
         vfs = emcee.vfs.VirtualFilesystem()
         stations = vfs.list_stations()
 
-        station_box = Gtk.HBox()
-        self.add(station_box)
+        under_box = Gtk.HBox()
+        self.add(under_box)
 
         ## Station scroller
-        self.station_picker = StationPicker(stations)
-        station_box.pack_start(self.station_picker, expand=False, fill=False, padding=0)
-        # Without setting a size_request, the label will expand and fill over the picker
-        self.station_picker.set_size_request(BUTTON_WIDTH + OFFSET_LEFT, -1)
+        self.station_picker = StationPicker(stations, margin_left=OFFSET_LEFT)
+        under_box.pack_start(self.station_picker, expand=False, fill=False, padding=0)
+        # Without setting a size_request, the info_box will until this is 1px wide.
+        self.station_picker.set_size_request(BUTTON_WIDTH, -1)
+
+        ## Channel scroller
+        self.channel_picker = ChannelPicker(
+            stations,
+            margin_top=OFFSET_UPPER,
+            halign=Gtk.Align.START,
+            valign=Gtk.Align.START,
+        )
+        self.add_overlay(self.channel_picker)
+        # If I don't set the size_request here it will default to 1x1px
+        self.channel_picker.set_size_request(
+            # FIXME: I should be able to tell it to figure this out on it's own, but -1 just goes for 1x1px
+            OFFSET_LEFT + max([len(s.channels) for s in stations]) * BUTTON_WIDTH,
+            BUTTON_HEIGHT)
+
+        ## Current selection info
+        info_box = Gtk.VBox()
+        under_box.pack_start(info_box, expand=True, fill=True, padding=0)
+
         ## Station label to sit above the channel scroller
         self.station_label = Gtk.Label(
             name="station-name",
@@ -231,34 +268,24 @@ class StreamSelector(Gtk.Overlay):
         self.station_label.set_ellipsize(Pango.EllipsizeMode.END)
         self.station_label.set_lines(3)
         self.station_label.set_text("Station title")
-        station_box.pack_start(self.station_label, expand=True, fill=True, padding=0)
-
-        ## Channel scroller
-        channel_box = Gtk.VBox()
-        self.add_overlay(channel_box)
-        self.channel_picker = ChannelPicker(stations)
-        channel_box.pack_start(self.channel_picker, expand=False, fill=False, padding=0)
-        # Without setting a size_request, the label will expand and fill over the picker
-        self.channel_picker.set_size_request(-1, BUTTON_HEIGHT + OFFSET_UPPER)
+        info_box.pack_start(self.station_label, expand=True, fill=True, padding=0)
 
         ## EPG info to go below the channel scroller
-        epg_box = Gtk.HBox()
-        channel_box.pack_start(epg_box, expand=False, fill=False, padding=0)
-        # Spacer to keep it to the right of the station scroller.
+        # Spacer to keep below the channel scroller
         epg_spacer = Gtk.DrawingArea()
-        epg_spacer.set_size_request(BUTTON_WIDTH + OFFSET_LEFT, BUTTON_HEIGHT)
-        epg_box.pack_start(epg_spacer, expand=False, fill=False, padding=0)
+        epg_spacer.set_size_request(-1, BUTTON_HEIGHT)
+        info_box.pack_start(epg_spacer, expand=False, fill=False, padding=0)
         self.epg_label = Gtk.Label(
             name="epg",
             halign=Gtk.Align.START,
-            valign=Gtk.Align.END,
+            valign=Gtk.Align.START,
             justify=Gtk.Justification.LEFT,
         )
         self.epg_label.set_line_wrap(True)  # Has no effect with ellipsize set unless set_lines is called
         self.epg_label.set_ellipsize(Pango.EllipsizeMode.END)
 #        self.epg_label.set_lines(2)  # This is how many lines it's allowed to *wrap*, it does not affect how many \n I can use
         self.epg_label.set_text(EPG_TEMPLATE)  # FIXME: Should this be all one string?
-        epg_box.pack_start(self.epg_label, expand=True, fill=True, padding=0)
+        info_box.pack_start(self.epg_label, expand=True, fill=True, padding=0)
 
         self.channel_picker.connect('focus-change', self.on_channel_change)
         self.station_picker.connect('focus-change', self.on_station_change)
@@ -291,6 +318,9 @@ if __name__ == '__main__':
     window.add(ss)
 
     def on_key_press(widget, event):
+        # FIXME: Use -gtk-key-bindings in CSS for configuring this. Can't be done in Mike's current version
+        #   https://developer.gnome.org/gtk3/stable/gtk3-Bindings.html
+        #   I think it comes in ~3.16 although the property name is "gtk-key-bindings" until a later version when the - is prefixed
         keyname = Gdk.keyval_name(event.keyval)
         if keyname == 'Escape':
             Gtk.main_quit()
