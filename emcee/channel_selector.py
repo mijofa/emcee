@@ -7,41 +7,39 @@ import emcee.vfs
 BUTTON_WIDTH = 150  # FIXME: This is based on the current size of the channel gifs
 BUTTON_HEIGHT = 150  # FIXME: This is based on the current size of the channel gifs
 OFFSET_UPPER = BUTTON_HEIGHT * 0.75
-OFFSET_LEFT = BUTTON_WIDTH * 0.5
+OFFSET_LEFT = BUTTON_WIDTH * 0.75
 
-EPG_TEMPLATE = "{channel_title}\nNOW:\n  {now_title}\nNEXT ({next_time}):\n  {next_title}"
+EPG_TEMPLATE = "{channel_title}\nCurrently playing:\n  {now_title}\nNext ({next_time}):\n  {next_title}"
 
 # FIXME: Move this stylesheet out into a CSS file and import that as a theme in the application
 style_provider = Gtk.CssProvider()
 css = b"""
 GtkLabel#station-name, GtkLabel#epg {
-   border-style: solid;
-   border-color: green;
-   border-width: 20px;
-   font-size: 20px;
-   background-color: red;
+    border-style: solid;
+    border-color: green;
+    border-width: 20px;
+    font-size: 20px;
+    background-color: red;
 }
 GtkWindow {
-   background-color: #729fcf;
+    background-color: #729fcf;
 }
 GtkButton {
-   font-size: 50px;
-   border-radius: 99999px;  /* FIXME: This is a stupid number to put here */
+    font-size: 50px;
+    border-radius: 99999px;  /* FIXME: This is a stupid number to put here */
 }
-/* This is when the  mouse is hovering over the button
- * .button:hover {
- *
- * }
- */
-/* This is when the button is clicked while the mouse is hovering over it
- * .button:hover:active {
- *
- * }
- */
-.button:focus {
-   /* Background colour can not be set on a GtkButton without clearing the background image */
-   background-image: none;
-   background-color: yellow;
+.button.inactive {
+    /* I wanted to make inactive icons smaller, but can't change size of objects in the CSS */
+}
+GtkStack GtkLayout .button.active {
+    /* GtkButton by default has a background-image.
+     *  That must be removed before we can change the background-color
+     */
+    background-image: none;
+    background-color: red;
+}
+.invisible {
+    opacity: 0;
 }
 """
 style_provider.load_from_data(css)
@@ -68,106 +66,43 @@ class ImageOrLabelButton(Gtk.Button):
             #label.set_line_wrap(True)
             #label.set_ellipsize(Pango.EllipsizeMode.END)
             #label.set_lines(3)
-        self.set_size_request(BUTTON_WIDTH, BUTTON_HEIGHT)
 
-        # I'm using the focus attribute to style the button nicely, however I want to control what keys change the focus.
-        # Easiest way to do this was to make it disable taking focus, then temporarily enable it as I grab focus.
-        ## FIXME: This is ugly, maybe stop using focus and make my own style attribute
+        self.set_size_request(BUTTON_WIDTH, BUTTON_HEIGHT)
         self.set_can_focus(False)
-        self.connect('focus-out-event', lambda self, _: self.set_can_focus(False))
+        self.get_style_context().add_class('inactive')
 
         if click:
             self.connect('clicked', click, *args)
 
-    def grab_focus(self):
-        self.set_can_focus(True)
-        super().grab_focus()
 
-
-class ChannelPicker(Gtk.Stack):
+class Picker(Gtk.Layout):
+    # Generic scroller for any number of itmes in a single row or column.
     __gsignals__ = {
-        'selection-change': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, (str,)),
+        'focus-change': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, (GObject.TYPE_PYOBJECT,)),
     }
 
-    def __init__(self, stations):
+    def __init__(self, orientation, items):
+        assert orientation in ('horizontal', 'vertical')
+        self.orientation = orientation
+        self.items = items
+
         super().__init__()
-
-        for station in stations:
-            layout = Gtk.Layout()
-            self.add_named(layout, station.title)
-            layout.channels = station.channels
-
-            # It's easier to move one box around than it is to have move around all the buttons themselves.
-            layout.box = Gtk.HBox()
-            layout.put(layout.box, 0, 0)
-
-            for channel in layout.channels:
-                button = ImageOrLabelButton(title=channel.title, icon=channel.icon, click=self.select, args=(channel,))
-                layout.box.pack_start(button, expand=False, fill=False, padding=0)
-
-            layout.adjustment = Gtk.Adjustment(value=0,
-                                               lower=0,
-                                               upper=len(layout.channels) - 1,
-                                               step_increment=1)
-            layout.adjustment.connect('value-changed', self._value_changed, layout)
-            self._value_changed(layout.adjustment, layout)
-
-    def _value_changed(self, adjustment, layout):
-        # List indices must be an int, however the adjustment property values are floats.
-        # Since I'm explicitly setting the adjustment properties, I know they are going to be rounded numbers
-        ind = int(adjustment.get_value())
-
-        layout.move(layout.box,
-                    OFFSET_LEFT + (BUTTON_WIDTH * -ind),
-                    OFFSET_UPPER)
-
-        layout.box.get_children()[ind].grab_focus()
-        layout.selected = layout.channels[ind]
-        self.emit('selection-change', layout.selected.title)
-
-    def next(self, *args):
-        adjustment = self.get_visible_child().adjustment
-        adjustment.set_value(adjustment.get_value() + 1)
-
-    def prev(self, *args):
-        adjustment = self.get_visible_child().adjustment
-        adjustment.set_value(adjustment.get_value() - 1)
-
-    def change_station(self, station):
-        self.set_visible_child_name(station)
-        # Trigger the _self.value_changed function to make sure current channel selections get updated
-        # I could call the functon directly, but I felt it was "more right" to do it by triggering this signal
-        self.get_visible_child().adjustment.emit('value-changed')
-
-    def select(self, button=None, channel=None):
-        assert (not button and not channel) or (button and channel)
-        if not button and not channel:
-            channel = self.get_visible_child().selected
-        print('Play', channel.title, channel.uri),
-
-
-class StationPicker(Gtk.Layout):
-    __gsignals__ = {
-        'select': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, (str,)),
-    }
-
-    def __init__(self, stations):
-        # Create the horizontal scroll window
-        super().__init__()
-        self.stations = stations
 
         # It's easier to move one box around than it is to have move around all the buttons themselves.
-        self.box = Gtk.VBox()
+        if self.orientation == 'vertical':
+            self.box = Gtk.VBox()
+        elif self.orientation == 'horizontal':
+            self.box = Gtk.HBox()
         self.put(self.box, 0, 0)
 
-        for station in self.stations:
-            button = ImageOrLabelButton(title=station.title, icon=station.icon)
-            button.set_can_focus(False)
-            self.box.pack_start(button, expand=False, fill=False, padding=0)
+        self.buttons = []
+        for item in self.items:
+            self.buttons.append(ImageOrLabelButton(title=item.title, icon=item.icon))
+            self.box.pack_start(self.buttons[-1], expand=False, fill=False, padding=0)
 
         self.adjustment = Gtk.Adjustment(value=0,
                                          lower=0,
-                                         upper=len(self.stations) - 1,
+                                         upper=len(self.items) - 1,
                                          step_increment=1)
         self.adjustment.connect('value-changed', self._value_changed)
         self._value_changed(self.adjustment)
@@ -177,18 +112,98 @@ class StationPicker(Gtk.Layout):
         # Since I'm explicitly setting the adjustment properties, I know they are going to be rounded numbers
         ind = int(adjustment.get_value())
 
-        self.move(self.box,
-                  OFFSET_LEFT,
-                  OFFSET_UPPER + (BUTTON_HEIGHT * -ind))
+        if self.orientation == 'vertical':
+            self.move(self.box,
+                      OFFSET_LEFT,
+                      OFFSET_UPPER + (BUTTON_HEIGHT * -ind))
+        elif self.orientation == 'horizontal':
+            self.move(self.box,
+                      OFFSET_LEFT + (BUTTON_WIDTH * -ind),
+                      OFFSET_UPPER)
 
-        station = self.stations[ind]
-        self.emit('select', station.title)
+        self.selected = self.items[ind]
+        self.emit('focus-change', self.selected)
+
+    def do_focus_change(self, item):
+        ind = self.items.index(item)
+        self.buttons[ind].get_style_context().remove_class('inactive')
+        self.buttons[ind].get_style_context().add_class('active')
+
+        # FIXME: This handler_id thing is a horrible hack
+        # Since lists are immutable, I'm able to abuse the shit out of it to get the result of self.connect into it's own arguments
+        handler_id = []
+        handler_id.append(self.connect('focus-change', self._remove_focus, self.buttons[ind], handler_id))
+
+    def _remove_focus(self, widget, item, button, handler_id):
+        # item is the newly focussed item, so it can't be used to find button
+        button.get_style_context().remove_class('active')
+        button.get_style_context().add_class('inactive')
+
+        # len(handler_id) should only ever be exactly 1, I'm expanding it here to get an exception if that's not the case
+        self.disconnect(*handler_id)
 
     def next(self, *args):
         self.adjustment.set_value(self.adjustment.get_value() + 1)
 
     def prev(self, *args):
         self.adjustment.set_value(self.adjustment.get_value() - 1)
+
+
+class StationPicker(Picker):
+    def __init__(self, stations):
+        super().__init__(orientation='vertical', items=stations)
+
+    def do_focus_change(self, item):
+        ind = self.items.index(item)
+        self.buttons[ind].get_style_context().add_class('invisible')
+
+        # FIXME: This handler_id thing is a horrible hack
+        # Since lists are immutable, I'm able to abuse the shit out of it to get the result of self.connect into it's own arguments
+        handler_id = []
+        handler_id.append(self.connect('focus-change', self._remove_focus, self.buttons[ind], handler_id))
+
+    def _remove_focus(self, widget, item, button, handler_id):
+        # item is the newly focussed item, so it can't be used to find button
+        button.get_style_context().remove_class('invisible')
+
+        # len(handler_id) should only ever be exactly 1, I'm expanding it here to get an exception if that's not the case
+        self.disconnect(*handler_id)
+
+
+class ChannelPicker(Gtk.Stack):
+    # This has a stack of the channels from multiple stations,
+    # making it slightly more complex than the generic Picker or the StationPicker,
+    # Still uses the generic Picker for each of those station channels lists though.
+    __gsignals__ = {
+        'focus-change': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, (GObject.TYPE_PYOBJECT,)),
+    }
+
+    def __init__(self, stations):
+        super().__init__()
+
+        for station in stations:
+            picker = Picker('horizontal', station.channels)
+            self.add_named(picker, station.title)
+            # I want the child Picker's event to propogate upwards to whoever's connected to this object.
+            picker.connect('focus-change', lambda _, i: self.emit('focus-change', i))
+
+    def next(self, *args):
+        self.get_visible_child().next()
+
+    def prev(self, *args):
+        self.get_visible_child().prev()
+
+    def change_station(self, station):
+        self.set_visible_child_name(station)
+        # Trigger the value_changed function to make sure current channel selections get updated
+        # I could call the functon directly, but I felt it was "more right" to do it by triggering this signal
+        self.get_visible_child().adjustment.emit('value-changed')
+
+    def select(self, button=None, channel=None):
+        assert (not button and not channel) or (button and channel)
+        if not button and not channel:
+            channel = self.get_visible_child().selected
+        print('Play', channel.title, channel.uri),
 
 
 class StreamSelector(Gtk.Overlay):
@@ -218,10 +233,6 @@ class StreamSelector(Gtk.Overlay):
         self.station_label.set_text("Station title")
         station_box.pack_start(self.station_label, expand=True, fill=True, padding=0)
 
-        ## Functions for controlling the station menu
-        self.prev_station = self.station_picker.prev
-        self.next_station = self.station_picker.next
-
         ## Channel scroller
         channel_box = Gtk.VBox()
         self.add_overlay(channel_box)
@@ -229,11 +240,6 @@ class StreamSelector(Gtk.Overlay):
         channel_box.pack_start(self.channel_picker, expand=False, fill=False, padding=0)
         # Without setting a size_request, the label will expand and fill over the picker
         self.channel_picker.set_size_request(-1, BUTTON_HEIGHT + OFFSET_UPPER)
-
-        ## Functions for controlling the channel menu
-        self.prev_channel = self.channel_picker.prev
-        self.next_channel = self.channel_picker.next
-        self.select_channel = self.channel_picker.select
 
         ## EPG info to go below the channel scroller
         epg_box = Gtk.HBox()
@@ -250,20 +256,32 @@ class StreamSelector(Gtk.Overlay):
         )
         self.epg_label.set_line_wrap(True)  # Has no effect with ellipsize set unless set_lines is called
         self.epg_label.set_ellipsize(Pango.EllipsizeMode.END)
-        self.epg_label.set_lines(2)  # This is how many lines it's allowed to *wrap*, it does not affect how many \n I can use
+#        self.epg_label.set_lines(2)  # This is how many lines it's allowed to *wrap*, it does not affect how many \n I can use
         self.epg_label.set_text(EPG_TEMPLATE)  # FIXME: Should this be all one string?
         epg_box.pack_start(self.epg_label, expand=True, fill=True, padding=0)
 
-        self.channel_picker.connect('selection-change', self.on_channel_change)
-        self.station_picker.connect('select', self.on_station_change)
+        self.channel_picker.connect('focus-change', self.on_channel_change)
+        self.station_picker.connect('focus-change', self.on_station_change)
 
-    def on_channel_change(self, widget, channel_name):
+        ## Functions for menu navigation
+        self.up = self.station_picker.prev
+        self.down = self.station_picker.next
+        self.left = self.channel_picker.prev
+        self.right = self.channel_picker.next
+        self.select = self.channel_picker.select
+
+    def on_channel_change(self, widget, channel):
         # FIXME: Get the NOW/NEXT info from EPG via the VFS
-        self.epg_label.set_text(EPG_TEMPLATE.format(channel_title=channel_name, now_title="N/A", next_time="??:??", next_title="N/A 2: The revenge of the the unknown"))
+        self.epg_label.set_text(EPG_TEMPLATE.format(
+            channel_title=channel.title,
+            now_title="N/A",
+            next_time="12:59pm",
+            next_title="N/A 2: The revenge of the the unknown",
+        ))
 
-    def on_station_change(self, widget, station_name):
-        self.station_label.set_text(station_name)
-        self.channel_picker.change_station(station_name)
+    def on_station_change(self, widget, station):
+        self.station_label.set_text(station.title)
+        self.channel_picker.change_station(station.title)
 
 
 if __name__ == '__main__':
@@ -277,15 +295,17 @@ if __name__ == '__main__':
         if keyname == 'Escape':
             Gtk.main_quit()
         elif keyname == 'Up':
-            ss.prev_station()
+            ss.up()
         elif keyname == 'Down':
-            ss.next_station()
+            ss.down()
         elif keyname == 'Left':
-            ss.prev_channel()
+            ss.left()
         elif keyname == 'Right':
-            ss.next_channel()
-        elif keyname in ('space', 'Return'):
-            ss.select_channel()
+            ss.right()
+        elif keyname in ('space', 'Return', 'KP_Enter'):
+            ss.select()
+        else:
+            print('pressed', keyname)
     window.connect('key-press-event', on_key_press)
 
     min_height = OFFSET_UPPER + (BUTTON_WIDTH * 2)
