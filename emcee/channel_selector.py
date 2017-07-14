@@ -188,9 +188,6 @@ class Picker(Gtk.Layout):
     def select(self):
         self.emit('select', self.selected)
 
-    def do_select(self, selected):
-        print('play', selected)
-
 
 class StationPicker(Picker):
     def __init__(self, stations, *args, **kwargs):
@@ -334,6 +331,7 @@ if __name__ == '__main__':
     window.connect("destroy", Gtk.main_quit)  # Quit & cleanup when closed
     ss = StreamSelector()
     window.add(ss)
+    ss.connect('select', lambda _, selected: print('Selected', selected))
 
     def on_key_press(widget, event):
         # FIXME: Use -gtk-key-bindings in CSS for configuring this. Can't be done in Mike's current version
