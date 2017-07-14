@@ -133,7 +133,9 @@ class Picker(Gtk.Layout):
                                          upper=len(self.items) - 1,
                                          step_increment=1)
         self.adjustment.connect('value-changed', self._value_changed)
-        self._value_changed(self.adjustment)
+        # Trigger the focus-change when the widget gets realised.
+        # This allows the station title and channel EPG to update on startup.
+        self.connect('realize', lambda _: self._value_changed(self.adjustment))
 
     def on_button_click(self, button):
         index = self.buttons.index(button)
@@ -351,7 +353,7 @@ if __name__ == '__main__':
         elif keyname in ('space', 'Return', 'KP_Enter'):
             ss.select()
         else:
-            print('pressed', keyname)
+            print('Pressed unbound key:', keyname)
     window.connect('key-press-event', on_key_press)
 
     min_height = OFFSET_UPPER + (BUTTON_HEIGHT * 2)
