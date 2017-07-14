@@ -16,48 +16,53 @@ style_provider = Gtk.CssProvider()
 css = b"""
 GtkWindow {
     background-color: #729fcf;
+    background-image: url("/usr/share/images/desktop-base/spacefun-wallpaper.svg");
+    background-size: cover;
+    background-position:   bottom right;
+    color: white;
 }
 
 GtkLabel#station-name, GtkLabel#epg {
-    padding: 20px 0 0 20px;
-    font-size: 20px;
-    background-color: red;
+    padding: 40px 0 0 40px;
+    font-size: 2em;
 }
 
 .button {
-    font-size: 50px;
+    font-size: 90px;  /* FIXME: Magic number based on the icon size */
     border-radius: 99999px;  /* FIXME: This is a stupid number to put here */
 
     /* Remove the button style entirely and just display the image */
     box-shadow: none;
     border-style: none;
+    /* GtkButton by default has a background-image.
+     *  That must be removed before we can change the background-color
+     */
     background-image: none;
 }
 
-GtkImage {
-    box-shadow: none;
-    border-style: none;
-    border-image: none;
-    background-image: none;
-    background-color: transparent;
-}
+/*
+ * GtkImage {
+ *     box-shadow: none;
+ *     border-style: none;
+ *     border-image: none;
+ *     background-image: none;
+ *     background-color: transparent;
+ * }
+ */
 
 .button.inactive {
     /* I wanted to make inactive icons smaller, but CSS can't be used to change the size of objects.
      * I think this can be done with a background image, but not worth the effort
      */
     opacity: 0.4;
-/*    -gtk-image-effect: dim; */
-/*    background-color: #729fcf; */
 }
-#ChannelPicker * .button.active {
-    /* GtkButton by default has a background-image.
-     *  That must be removed before we can change the background-color
-     */
-/*    -gtk-image-effect: highlight; */
-/*    background-color: #204a87; */
+.inactive.button:hover{
+    /* Only highlight the .active one, because the ? buttons don't highlight
+     * and it's less noticable on .active than on .inactive */
+    opacity: 0.6;
 }
-.button:hover, .button:active {
+.active.button:hover {
+    -gtk-image-effect: highlight;
 /*    -gtk-image-effect: highlight/dim/none; */
 }
 #StationPicker * .button.active {
@@ -74,7 +79,7 @@ Gtk.StyleContext.add_provider_for_screen(
 
 
 class ImageOrLabelButton(Gtk.Button):
-    def __init__(self, title, icon, click=None, args=()):
+    def __init__(self, title, icon):
         super().__init__()
         if icon:
             self.set_image(Gtk.Image.new_from_file(icon))
@@ -94,19 +99,12 @@ class ImageOrLabelButton(Gtk.Button):
         self.set_can_focus(False)
         self.get_style_context().add_class('inactive')
 
-        if click:
-            self.connect('clicked', click, *args)
-
-    def do_clicked(self, *args):
-        picker = self.get_parent().get_parent()
-        index = picker.buttons.index(self)
-        picker.adjustment.set_value(index)
-
 
 class Picker(Gtk.Layout):
     # Generic scroller for any number of itmes in a single row or column.
     __gsignals__ = {
         'focus-change': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, (GObject.TYPE_PYOBJECT,)),
+        'select': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, (GObject.TYPE_PYOBJECT,)),
     }
 
     def __init__(self, orientation, items, *args, **kwargs):
@@ -125,7 +123,9 @@ class Picker(Gtk.Layout):
 
         self.buttons = []
         for item in self.items:
-            self.buttons.append(ImageOrLabelButton(title=item.title, icon=item.icon))
+            button = ImageOrLabelButton(title=item.title, icon=item.icon)
+            button.connect('clicked', self.on_button_click)
+            self.buttons.append(button)
             self.box.pack_start(self.buttons[-1], expand=False, fill=False, padding=0)
 
         self.adjustment = Gtk.Adjustment(value=0,
@@ -134,6 +134,13 @@ class Picker(Gtk.Layout):
                                          step_increment=1)
         self.adjustment.connect('value-changed', self._value_changed)
         self._value_changed(self.adjustment)
+
+    def on_button_click(self, button):
+        index = self.buttons.index(button)
+        if index == self.adjustment.get_value():
+            self.emit('select', self.items[index])
+        else:
+            self.adjustment.set_value(index)
 
     def _value_changed(self, adjustment):
         # List indices must be an int, however the adjustment property values are floats.
@@ -176,6 +183,12 @@ class Picker(Gtk.Layout):
     def prev(self, *args):
         self.adjustment.set_value(self.adjustment.get_value() - 1)
 
+    def select(self):
+        self.emit('select', self.selected)
+
+    def do_select(self, selected):
+        print('play', selected)
+
 
 class StationPicker(Picker):
     def __init__(self, stations, *args, **kwargs):
@@ -189,6 +202,7 @@ class ChannelPicker(Gtk.Stack):
     # Still uses the generic Picker for each of those station channels lists though.
     __gsignals__ = {
         'focus-change': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, (GObject.TYPE_PYOBJECT,)),
+        'select': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, (GObject.TYPE_PYOBJECT,)),
     }
 
     def __init__(self, stations, *args, **kwargs):
@@ -198,8 +212,9 @@ class ChannelPicker(Gtk.Stack):
         for station in stations:
             picker = Picker('horizontal', station.channels)
             self.add_named(picker, station.title)
-            # I want the child Picker's event to propogate upwards to whoever's connected to this object.
+            # FIXME: There must be a better way to do this
             picker.connect('focus-change', lambda _, i: self.emit('focus-change', i))
+            picker.connect('select', lambda _, i: self.emit('select', i))
 
     def next(self, *args):
         self.get_visible_child().next()
@@ -213,16 +228,13 @@ class ChannelPicker(Gtk.Stack):
         # I could call the functon directly, but I felt it was "more right" to do it by triggering this signal
         self.get_visible_child().adjustment.emit('value-changed')
 
-    def select(self, button=None, channel=None):
-        assert (not button and not channel) or (button and channel)
-        if not button and not channel:
-            channel = self.get_visible_child().selected
-        print('Play', channel.title, channel.uri),
+    def select(self):
+        self.get_visible_child().select()
 
 
 class StreamSelector(Gtk.Overlay):
     __gsignals__ = {
-        'up': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
+        'select': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, (GObject.TYPE_PYOBJECT,)),
     }
 
     def __init__(self):
@@ -264,11 +276,11 @@ class StreamSelector(Gtk.Overlay):
             valign=Gtk.Align.START,
             justify=Gtk.Justification.LEFT,
         )
-        self.station_label.set_line_wrap(True)
+        self.station_label.set_size_request(-1, OFFSET_UPPER)
+        self.station_label.set_line_wrap(False)
         self.station_label.set_ellipsize(Pango.EllipsizeMode.END)
-        self.station_label.set_lines(3)
         self.station_label.set_text("Station title")
-        info_box.pack_start(self.station_label, expand=True, fill=True, padding=0)
+        info_box.pack_start(self.station_label, expand=False, fill=False, padding=0)
 
         ## EPG info to go below the channel scroller
         # Spacer to keep below the channel scroller
@@ -281,14 +293,18 @@ class StreamSelector(Gtk.Overlay):
             valign=Gtk.Align.START,
             justify=Gtk.Justification.LEFT,
         )
-        self.epg_label.set_line_wrap(True)  # Has no effect with ellipsize set unless set_lines is called
         self.epg_label.set_ellipsize(Pango.EllipsizeMode.END)
-#        self.epg_label.set_lines(2)  # This is how many lines it's allowed to *wrap*, it does not affect how many \n I can use
-        self.epg_label.set_text(EPG_TEMPLATE)  # FIXME: Should this be all one string?
+        self.epg_label.set_line_wrap(True)  # Has no effect with ellipsize set unless set_lines is called
+        self.epg_label.set_lines(2)  # This is how many lines it's allowed to *wrap*, it does not affect how many \n I can use
+        # NOTE: With the wrapping set up like this, it's possible the channel name or the now/next strings will wrap and look bad.
+        # FIXME: Should we use separate labels here so as to get different wrapping behaviour for each?
+        #        Alternatively can we use the markup thing to do that?
+        self.epg_label.set_text(EPG_TEMPLATE)
         info_box.pack_start(self.epg_label, expand=True, fill=True, padding=0)
 
         self.channel_picker.connect('focus-change', self.on_channel_change)
         self.station_picker.connect('focus-change', self.on_station_change)
+        self.channel_picker.connect('select', lambda _, i: self.emit('select', i))
 
         ## Functions for menu navigation
         self.up = self.station_picker.prev
@@ -338,10 +354,13 @@ if __name__ == '__main__':
             print('pressed', keyname)
     window.connect('key-press-event', on_key_press)
 
-    min_height = OFFSET_UPPER + (BUTTON_WIDTH * 2)
-    min_width = OFFSET_LEFT + (BUTTON_HEIGHT * 3)
+    min_height = OFFSET_UPPER + (BUTTON_HEIGHT * 2)
+    min_width = OFFSET_LEFT + (BUTTON_WIDTH * 3)
     window.set_size_request(min_width, min_height)
-    window.set_default_size(BUTTON_WIDTH * 4.5, BUTTON_HEIGHT * 3.5)
+    window.set_default_size(
+        min_width + BUTTON_WIDTH * 1.5,
+        min_height + BUTTON_HEIGHT * 1.5
+    )
     window.show_all()
 
     Gtk.main()
