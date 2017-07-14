@@ -210,5 +210,7 @@ if __name__ == '__main__':
     print(osd.push_status('3 Temp status', context_string='subtitle', timeout=1))
     win.add(osd)
 
+    win.connect('key-press-event', lambda _, e: osd.show())
+
     win.show_all()
     Gtk.main()

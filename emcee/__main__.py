@@ -90,44 +90,48 @@ def on_key_press(window, event):
 
 window.connect("key_press_event", on_key_press)
 
-## CLI output, showing current position and state
-bar_length = 40  # FIXME: Somehow detect width of terminal and set this accordingly
+## This was written before the OSD was implemented, when I wanted some form of status info on the terminal.
+## Unnecessary now, but perhaps useful for reference.
+#
+# ## CLI output, showing current position and state
+# bar_length = 40  # FIXME: Somehow detect width of terminal and set this accordingly
+#
+#
+# def update_status(vid_widget):
+#     """Make a fancy looking progressbar with numbers for how far into the current movie you are"""
+#     if vid_widget.state == 'Opening':
+#         print('Loading', vid_widget.player.get_media().get_mrl())
+#     elif vid_widget.state not in ('Playing', 'Paused', 'Ended'):
+#         logging.info('VLC in unknown state: %s', vid_widget.state)
+#         return
+#     current_min = int(vid_widget.time / 60)
+#     current_sec = int(vid_widget.time % 60)
+#     bar = ''
+#     for i in range(0, int(bar_length * vid_widget.position) - 1):
+#         bar += '='
+#     bar += '||' if vid_widget.paused else '|>'
+#     for i in range(len(bar) - 1, bar_length):
+#         bar += '-'
+#     length_min = int(vid_widget.length / 60)
+#     length_sec = int(vid_widget.length % 60)
+#     # This does space padding for 4 characters (4) removes any decimal points (.0) and displays it as a percentage (%):
+#     #     {p:4.0%}
+#     print(
+#         "\r{cm:02}:{cs:02} [{bar}] {p:4.0%} {lm:02}:{ls:02} V: {v:4.0%} ".format(
+#             cm=current_min, cs=current_sec,
+#             bar=bar,
+#             p=vid_widget.position,
+#             lm=length_min, ls=length_sec,
+#             v=vid_widget.volume),
+#         end='')
+#
+# # FIXME: Should I hook this to other events?
+# vid.connect('paused', update_status)
+# #vid.connect('position_changed', update_status)  # Only really need either time or position, not both
+# vid.connect('time_changed', update_status)
+# vid.connect('volume_changed', update_status)
+# vid.connect('media_state', update_status)
 
-
-def update_status(vid_widget):
-    """Make a fancy looking progressbar with numbers for how far into the current movie you are"""
-    if vid_widget.state == 'Opening':
-        print('Loading', vid_widget.player.get_media().get_mrl())
-    elif vid_widget.state not in ('Playing', 'Paused', 'Ended'):
-        logging.info('VLC in unknown state: %s', vid_widget.state)
-        return
-    current_min = int(vid_widget.time / 60)
-    current_sec = int(vid_widget.time % 60)
-    bar = ''
-    for i in range(0, int(bar_length * vid_widget.position) - 1):
-        bar += '='
-    bar += '||' if vid_widget.paused else '|>'
-    for i in range(len(bar) - 1, bar_length):
-        bar += '-'
-    length_min = int(vid_widget.length / 60)
-    length_sec = int(vid_widget.length % 60)
-    # This does space padding for 4 characters (4) removes any decimal points (.0) and displays it as a percentage (%):
-    #     {p:4.0%}
-    print(
-        "\r{cm:02}:{cs:02} [{bar}] {p:4.0%} {lm:02}:{ls:02} V: {v:4.0%} ".format(
-            cm=current_min, cs=current_sec,
-            bar=bar,
-            p=vid_widget.position,
-            lm=length_min, ls=length_sec,
-            v=vid_widget.volume),
-        end='')
-
-# FIXME: Should I hook this to other events?
-vid.connect('paused', update_status)
-#vid.connect('position_changed', update_status)  # Only really need either time or position, not both
-vid.connect('time_changed', update_status)
-vid.connect('volume_changed', update_status)
-vid.connect('media_state', update_status)
 
 # FIXME: This also triggers when the media is first loaded, I don't want that.
 #        Perhaps I can set an event hook to trigger *after* media loads, which then sets up this hook?
