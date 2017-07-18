@@ -1,9 +1,14 @@
 #!/usr/bin/python3
 # NOTE: Consider running this with the GDK_SCALE environment variable set to force all elements to be bigger,
 #       This might be an easier way to implement the 10-foot UI.
+import os
 import sys
 import logging
 import warnings
+logging_level = os.environ.get('EMCEEDEBUG')
+if logging_level:
+    logging.basicConfig(level=int(logging_level))
+logger = logging.getLogger(__name__)
 
 # This must be done *before* importing GTK, otherwise it will cause some unexpected segfaults
 # GTK doesn't enable X11's (Un)LockDisplay functions which allow multiple threads to safely draw to the same X window.
@@ -43,20 +48,20 @@ osd.show(3)
 # FIXME: Make this configurable via a config file
 keybindings = {
     # Volume
-    'Up': lambda: vid.increment_volume(+0.02),
-    'Down': lambda: vid.increment_volume(-0.02),
+    'Up': lambda: vid.emit('increment_volume', +0.02),
+    'Down': lambda: vid.emit('increment_volume', -0.02),
 
     # Time manipulation
-    'space': vid.toggle_pause,
-    'Left': lambda: vid.seek(-20),  # 20 seconds back
-    'Right': lambda: vid.seek(+30),  # 30 seconds forward
-    'Page_Up': lambda: vid.seek(-300),  # 5 minutes back
-    'Page_Down': lambda: vid.seek(+300),  # 5 minutes forward
-    'Home': lambda: vid.set_time(0),  # Jump to beginning
-    'End': lambda: vid.set_time(999999999),  # Jump to end, for testing only
+    'space': lambda: vid.emit('toggle_pause'),
+    'Left': lambda: vid.emit('seek', -20),  # 20 seconds back
+    'Right': lambda: vid.emit('seek', +30),  # 30 seconds forward
+    'Page_Up': lambda: vid.emit('seek', -300),  # 5 minutes back
+    'Page_Down': lambda: vid.emit('seek', +300),  # 5 minutes forward
+    'Home': lambda: vid.emit('set_time', 0),  # Jump to beginning
+    'End': lambda: vid.emit('set_time', -5),  # Jump to end (almost), for testing only
 
-    'p': lambda: vid.play(media_uri),
-    'BackSpace': vid.stop,
+    'p': lambda: vid.emit('play'),
+    'BackSpace': lambda: vid.emit('stop'),
 
     'F': window.fullscreen,
     'f': window.unfullscreen,
@@ -75,18 +80,19 @@ keybindings = {
 def on_key_press(window, event):
     keyname = Gdk.keyval_name(event.keyval)
     if keyname in keybindings.keys():
-        logging.debug('Key pressed: %s', keyname)
+        logger.debug('Key pressed: %s', keyname)
         if keybindings[keyname].__name__ == '<lambda>':
-            logging.debug('Running lambda: %s %s',
-                          keybindings[keyname].__code__.co_names,
-                          keybindings[keyname].__code__.co_consts,
-                          )
+            # Magic to try and pull some useful info from the lambda's code
+            logger.debug('Running lambda: %s %s',
+                         keybindings[keyname].__code__.co_names,
+                         keybindings[keyname].__code__.co_consts,
+                         )
         else:
-            logging.debug('Running functon: %s', keybindings[keyname].__name__)
+            logger.debug('Running functon: %s', keybindings[keyname].__name__)
         # Run the function or lambda stored in the keybindings dict
         keybindings[keyname]()
     else:
-        logging.debug('No keybinding found for %s', keyname)
+        logger.debug('No keybinding found for %s', keyname)
 
 window.connect("key_press_event", on_key_press)
 
@@ -102,7 +108,7 @@ window.connect("key_press_event", on_key_press)
 #     if vid_widget.state == 'Opening':
 #         print('Loading', vid_widget.player.get_media().get_mrl())
 #     elif vid_widget.state not in ('Playing', 'Paused', 'Ended'):
-#         logging.info('VLC in unknown state: %s', vid_widget.state)
+#         logger.info('VLC in unknown state: %s', vid_widget.state)
 #         return
 #     current_min = int(vid_widget.time / 60)
 #     current_sec = int(vid_widget.time % 60)
@@ -158,5 +164,6 @@ vid.connect('loaded', on_load)
 vid.connect('error', lambda _: Gtk.main_quit())  # Quit & cleanup when VLC has an error
 vid.connect('end_reached', lambda _: Gtk.main_quit())  # Quit & cleanup when finished media file
 
-vid.play(media_uri)
+vid.load_media(media_uri)
+vid.emit('play')
 Gtk.main()

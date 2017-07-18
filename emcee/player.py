@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 import sys
 import logging
+logger = logging.getLogger(__name__)
 
 ## This is done in the first emcee scripts to run, but leaving it commented
 ## here for documentation as this is the file that actually depends on it
@@ -36,17 +37,34 @@ class VLCWidget(Gtk.DrawingArea):
     # FIXME: I suspect I'm using GTK's signals wrongly, and am supposed to use them to call things interal to the widget,
     #        not just to signal when the widget has done things.
     #    eg, load_thing() should not emit('loaded') but rather emit('load_thing') should trigger do_load_thing()
+    #
+    # Despite common-sense, the SIGNAL_ACTION is is for things that don't have an associated internal action.
+    # I think they are meant only to indicate an action has happened, and to trigger an external reaction.
     __gsignals__ = {
-        'end_reached': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
-        'time_changed': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
-        'position_changed': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
-        'volume_changed': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
-        'paused': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
-        'playing': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
-        'media_state': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
-        'error': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
-        'loaded': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
-        'initialised': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ()),
+        # Signals emitted internally for status updates to be collected externally
+        'end_reached': (GObject.SIGNAL_ACTION, None, ()),
+        'time_changed': (GObject.SIGNAL_ACTION, None, ()),
+        'position_changed': (GObject.SIGNAL_ACTION, None, ()),
+        'volume_changed': (GObject.SIGNAL_ACTION, None, ()),
+        'paused': (GObject.SIGNAL_ACTION, None, ()),
+        'playing': (GObject.SIGNAL_ACTION, None, ()),
+        'media_state': (GObject.SIGNAL_ACTION, None, ()),
+        'error': (GObject.SIGNAL_ACTION, None, ()),
+        'loaded': (GObject.SIGNAL_ACTION, None, ()),
+        'initialised': (GObject.SIGNAL_ACTION, None, ()),
+        # Signals emitted externally to trigger an action internally
+        'play': (GObject.SIGNAL_RUN_FIRST, None, ()),
+        'pause': (GObject.SIGNAL_RUN_FIRST, None, ()),
+        'toggle_pause': (GObject.SIGNAL_RUN_FIRST, None, ()),
+        'stop': (GObject.SIGNAL_RUN_FIRST, None, ()),
+        'seek': (GObject.SIGNAL_RUN_FIRST, None, (int,)),
+        'set_time': (GObject.SIGNAL_RUN_FIRST, None, (int,)),
+        'set_volume': (GObject.SIGNAL_RUN_FIRST, None, (float,)),
+        'increment_volume': (GObject.SIGNAL_RUN_FIRST, None, (float,)),
+        'set_subtitles': (GObject.SIGNAL_RUN_FIRST, None, (int,)),
+        'increment_subtitles': (GObject.SIGNAL_RUN_FIRST, None, (int,)),
+        'set_audio_tracks': (GObject.SIGNAL_RUN_FIRST, None, (int,)),
+        'increment_audio_tracks': (GObject.SIGNAL_RUN_FIRST, None, (int,)),
     }
 
     # Initialise state variables
@@ -59,8 +77,8 @@ class VLCWidget(Gtk.DrawingArea):
     instance = None
 
     def emit(self, ev_name, *args, **kwargs):
-        logging.debug('VLCWidget emitting %s', ev_name)
-        super(VLCWidget, self).emit(ev_name, *args, **kwargs)
+        logger.debug('VLCWidget emitting %s', ev_name)
+        super().emit(ev_name, *args, **kwargs)
 
     def __init__(self, *args):
 
@@ -98,14 +116,14 @@ class VLCWidget(Gtk.DrawingArea):
         self.connect("realize", self._realize)
 
     def _realize(self, widget, data=None):
-        logging.debug('VLCWidget realizing')
+        logger.debug('VLCWidget realizing')
         win_id = widget.get_window().get_xid()
         self.player.set_xwindow(win_id)
 
         self.emit('initialised')
 
     def _destroy(self, *args):
-        logging.debug("VLCWidget Destroying")
+        logger.debug("VLCWidget Destroying")
         # Stop playback and release the VLC objects for garbage collecting.
         self.player.stop()
         self.player.release()
@@ -138,43 +156,6 @@ class VLCWidget(Gtk.DrawingArea):
         self.emit('position_changed')
 
     ## Internally used functions ##
-    def _load_media(self, uri, local=True):
-        """Load a new media file/stream, and whatever else is involved therein"""
-
-        logging.debug('VLDWidget loading media')
-        if not self.instance:
-            logging.debug('    deffered')
-            # VLC not yet initialised so can't actually load the media yet.
-            # Rerun ourselves when VLC has been initialised.
-            self.connect('initialised', lambda _: self._load_media(uri=uri, local=local))
-            return
-
-        ##FIXME: Handle loading of subtitles as well
-        ##       If a .srt or similar is placed with the media file, load that and turn them on by default.
-        ##       Does VLC do that automatically?
-        ##
-        ##       Otherwise turn them off by default, but search for them automatically at http://thesubdb.com/
-        ##       TV stream telx & similar should be turned off by default as well.
-
-        # VLC detects local vs. remote URIs by simply checking if there is a ':' character in it, this is insufficient.
-        ## FIXME: Actually automate this using better heuristics rather than just passing that test off to the user
-        ##        Used urlparse.urlparse for this test in UPMC
-        if local:
-            ## FIXME: bytes() conversion here not necessary for python-vlc 2.2.*
-            ##        Should I instead check version at import time and just error out completely if < 2.2?
-            if not vlc.libvlc_get_version().startswith(b'2.2.'):
-                uri = bytes(uri, sys.getfilesystemencoding())
-            media = self.instance.media_new_path(uri)
-        else:
-            media = self.instance.media_new(uri)
-
-        media_em = media.event_manager()
-        media_em.event_attach(vlc.EventType.MediaStateChanged, self._on_state_change)
-        media_em.event_attach(vlc.EventType.MediaParsedChanged, self._on_parsed)
-
-        self.player.set_media(media)
-        self.player.play()
-
     def _on_state_change(self, event):
         # All possible states at time of writing --Mike June 2016
         #
@@ -212,21 +193,55 @@ class VLCWidget(Gtk.DrawingArea):
         return self.player.get_media().get_meta(vlc.Meta.Title)
 
     ## Playback control functions ##
-    def play(self, uri=None, local=True):
-        """Unpause if currently paused, or load new media if uri is set"""
+    def load_media(self, uri, local=True):
+        """Load a new media file/stream, and whatever else is involved therein"""
 
-        if uri:
-            self._load_media(uri, local=local)
+        logger.debug('VLDWidget loading media')
+        if not self.instance:
+            logger.debug('    deffered')
+            # VLC not yet initialised so can't actually load the media yet.
+            # Rerun ourselves when VLC has been initialised.
+            self.connect('initialised', lambda _: self._load_media(uri=uri, local=local))
+            return False
+
+        ##FIXME: Handle loading of subtitles as well
+        ##       If a .srt or similar is placed with the media file, load that and turn them on by default.
+        ##       Does VLC do that automatically?
+        ##
+        ##       Otherwise turn them off by default, but search for them automatically at http://thesubdb.com/
+        ##       TV stream telx & similar should be turned off by default as well.
+
+        # VLC detects local vs. remote URIs by simply checking if there is a ':' character in it, this is insufficient.
+        ## FIXME: Actually automate this using better heuristics rather than just passing that test off to the user
+        ##        Used urlparse.urlparse for this test in UPMC
+        logger.debug('VLCWidget actually loading media')
+        if local:
+            ## FIXME: bytes() conversion here not necessary for python-vlc 2.2.*
+            ##        Should I instead check version at import time and just error out completely if < 2.2?
+            if not vlc.libvlc_get_version().startswith(b'2.2.'):
+                uri = bytes(uri, sys.getfilesystemencoding())
+            media = self.instance.media_new_path(uri)
         else:
-            return self.player.play()
+            media = self.instance.media_new(uri)
 
-    def stop(self):
+        media_em = media.event_manager()
+        media_em.event_attach(vlc.EventType.MediaStateChanged, self._on_state_change)
+        media_em.event_attach(vlc.EventType.MediaParsedChanged, self._on_parsed)
+
+        self.player.set_media(media)
+        self.emit('play')
+
+    def do_play(self):
+        """Play if currently paused or stopped"""
+
+        return self.player.play()
+
+    def do_stop(self):
         """Stop all playback, and hide the player"""
 
-        self.hide()
         return self.player.stop()
 
-    def toggle_pause(self):
+    def do_toggle_pause(self):
         """Toggle current pause state. Return final state"""
 
         if self.player.can_pause():
@@ -235,8 +250,13 @@ class VLCWidget(Gtk.DrawingArea):
         else:
             return False
 
-    def set_time(self, seconds):
+    def do_set_time(self, seconds):
         """Jump to certain point in the media, unlike seek() this deals with absolute time."""
+
+        # if trying to set to a negative time, count from the end of the media.
+        # FIXME: Is this worthwhile at all?
+        if seconds < 0:
+            seconds = self.length + seconds
 
         milliseconds = int(seconds * 1000)  # VLC's logic deals with milliseconds
 
@@ -246,7 +266,7 @@ class VLCWidget(Gtk.DrawingArea):
 
         return int(self.player.get_time() / 1000)
 
-    def seek(self, seconds):
+    def do_seek(self, seconds):
         """Jump forward or back in the media, unlike set_time() this deals with relative time.
 
            Suggest when using this to call it with inc=+10 rather than just inc=10
@@ -254,7 +274,7 @@ class VLCWidget(Gtk.DrawingArea):
            conceptually the former makes more sense and avoids confusion between increment_ and set_
         """
 
-        return self.set_time(self.time + seconds)
+        return self.do_set_time(max(0, self.time + seconds))
 
     def get_current_subtitles(self):
         """Get name of current subtitles track"""
@@ -264,7 +284,7 @@ class VLCWidget(Gtk.DrawingArea):
         """Get name of all subtitles tracks"""
         return list(self.subtitles.values())
 
-    def set_subtitles(self, index):
+    def do_set_subtitles(self, index):
         """Set current subtitles track, index is based on the order from get_subtitles()"""
         if index == -1:
             # Just turn them off
@@ -281,7 +301,7 @@ class VLCWidget(Gtk.DrawingArea):
         else:
             return 'Subtitles track {} not found'.format(index)
 
-    def increment_subtitles(self, inc=1):
+    def do_increment_subtitles(self, inc=1):
         """Increment through subsitles in the order they come from get_subtitles()"""
         if len(self.subtitles) == 1 and -1 in self.subtitles:
             return 'No subtitles found'
@@ -291,7 +311,7 @@ class VLCWidget(Gtk.DrawingArea):
         index += inc
         index = index % len(self.subtitles)  # In case it's above the max or below 0
 
-        return self.set_subtitles(index)
+        return self.do_set_subtitles(index)
 
     def get_current_audio_track(self):
         """Get name of current audio track"""
@@ -299,10 +319,10 @@ class VLCWidget(Gtk.DrawingArea):
 
     def get_audio_tracks(self):
         """Get name of all audio tracks"""
-        logging.debug(self.audio_tracks)
+        logger.debug(self.audio_tracks)
         return list(self.audio_tracks.values())
 
-    def set_audio_track(self, index):
+    def do_set_audio_track(self, index):
         """Set current audio track, index is based on the order from get_audio_tracks()"""
         if index == -1:
             # Just turn audio off
@@ -320,7 +340,7 @@ class VLCWidget(Gtk.DrawingArea):
         else:
             return 'Audio track {} not found'.format(index)
 
-    def increment_audio_track(self, inc=1):
+    def do_increment_audio_track(self, inc=1):
         """Increment through audio tracks in the order they come from get_audio_tracks()
 
            Suggest when using this to call it with inc=+10 rather than just inc=10
@@ -335,14 +355,14 @@ class VLCWidget(Gtk.DrawingArea):
         index += inc
         index = index % len(self.audio_tracks)  # In case it's above the max or below 0
 
-        return self.set_audio_track(index)
+        return self.do_set_audio_track(index)
 
-    def set_volume(self, value):
+    def do_set_volume(self, value):
         """Set the volume to a specific percentage"""
         self.player.audio_set_volume(int(value * 100))
         return value  # FIXME: This blindly assumes the volume change worked
 
-    def increment_volume(self, inc):
+    def do_increment_volume(self, inc):
         """Increment volume by a percentage of the total
 
            Suggest when using this to call it with inc=+10 rather than just inc=10
@@ -350,4 +370,4 @@ class VLCWidget(Gtk.DrawingArea):
            conceptually the former makes more sense and avoids confusion between increment_ and set_
         """
         value = self.volume + inc
-        return self.set_volume(value)
+        return self.do_set_volume(value)

@@ -2,6 +2,7 @@
 
 import time
 import logging
+logger = logging.getLogger(__name__)
 from gi.repository import Gtk, Gdk, Pango, GObject, GLib
 
 TIME_FORMAT = '%X'  # FIXME: Confirm that '%X' really does change with locale
@@ -59,7 +60,7 @@ class OSD(Gtk.Frame):
     _hide_timer = None
 
     def __init__(self):
-        logging.debug('Setting up OSD')
+        logger.debug('Setting up OSD')
         super().__init__(
             margin=OUTER_MARGIN,  # Keep it slightly away from the edge
             name="osd",  # Used for CSS styling
@@ -125,7 +126,7 @@ class OSD(Gtk.Frame):
         self.vbox = vbox  # Only here for the temporary set_has_position function
 
     def set_has_position(self, has_position):
-        logging.debug('Adding progress bar to OSD')
+        logger.debug('Adding progress bar to OSD')
         # FIXME: This is not suitable for the end result, I've only put this here for use at home when not 10-feet away.
         assert type(has_position) == bool
         if not has_position:
@@ -140,13 +141,13 @@ class OSD(Gtk.Frame):
 
     def _update_time(self):
         # This function runs *very* often uncommenting this could fill the debug screen in less than a second
-        #logging.debug('Updating clock')
+        #logger.debug('Updating clock')
         self._set_time(time.strftime(TIME_FORMAT))
         return True  # Gotta return True to tell GObject to keep the timer running and keep running this every second
 
     ## OSD visibility functions
     def show(self, timeout=5):  # FIXME: What should the timeout be? UPMC defaulted to 3s
-        logging.debug('Showing OSD')
+        logger.debug('Showing OSD')
 
         # Remove any pre-existing hide timer before displaying the OSD.
         # This ensures that no previous timer hides the OSD before the new timeout triggers
@@ -159,7 +160,7 @@ class OSD(Gtk.Frame):
             self._hide_timer = GObject.timeout_add_seconds(timeout, self.hide)
 
     def hide(self):
-        logging.debug('Hiding OSD')
+        logger.debug('Hiding OSD')
 
         return super().hide()
 
@@ -171,13 +172,13 @@ class OSD(Gtk.Frame):
 
     ## Status line updating
     def set_default_status(self, default_status=''):
-        logging.debug('Updating default status "%s"', default_status)
+        logger.debug('Updating default status "%s"', default_status)
         self._status.remove_all(self._status.get_context_id('default'))
         self._status.push(self._status.get_context_id('default'), default_status)
 
     def push_status(self, status_string, context_string='', timeout=3):
         # Thin wrapper around _status.push that gives every message a timeout before automatically removing it from the stack
-        logging.debug('Adding status string "%s"', status_string)
+        logger.debug('Adding status string "%s"', status_string)
         # FIXME: Do something with the context string?
         #        Perhaps prioritise certain contexts, and choose timeouts accordingly.
         context_id = self._status.get_context_id(context_string)
@@ -194,7 +195,7 @@ class OSD(Gtk.Frame):
 
 if __name__ == '__main__':
     import sys
-    logging.basicConfig(level=logging.DEBUG)
+    logger.basicConfig(level=logger.DEBUG)
 
     win = Gtk.Window()
     win.override_background_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(0, 0, 0, 1))  # Set the background to black

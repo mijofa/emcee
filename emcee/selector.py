@@ -9,7 +9,7 @@ BUTTON_HEIGHT = 150  # FIXME: This is based on the current size of the channel g
 OFFSET_UPPER = BUTTON_HEIGHT * 0.75
 OFFSET_LEFT = BUTTON_WIDTH * 0.75
 
-EPG_TEMPLATE = "{channel_title}\nCurrently playing:\n  {now_title}\nNext ({next_time}):\n  {next_title}"
+EPG_TEMPLATE = "{channel.title}\nCurrently playing:\n  {channel.epg_brief.now}\nNext ({channel.epg_brief.next_starttime}):\n  {channel.epg_brief.next}"
 
 # FIXME: Move this stylesheet out into a CSS file and import that as a theme in the application
 style_provider = Gtk.CssProvider()
@@ -103,8 +103,8 @@ class ImageOrLabelButton(Gtk.Button):
 class Picker(Gtk.Layout):
     # Generic scroller for any number of itmes in a single row or column.
     __gsignals__ = {
-        'focus-change': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, (GObject.TYPE_PYOBJECT,)),
-        'select': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, (GObject.TYPE_PYOBJECT,)),
+        'focus-change': (GObject.SIGNAL_RUN_LAST, None, (GObject.TYPE_PYOBJECT,)),
+        'selected': (GObject.SIGNAL_RUN_LAST, None, (GObject.TYPE_PYOBJECT,)),
     }
 
     def __init__(self, orientation, items, *args, **kwargs):
@@ -140,7 +140,7 @@ class Picker(Gtk.Layout):
     def on_button_click(self, button):
         index = self.buttons.index(button)
         if index == self.adjustment.get_value():
-            self.emit('select', self.items[index])
+            self.emit('selected', self.items[index])
         else:
             self.adjustment.set_value(index)
 
@@ -186,7 +186,7 @@ class Picker(Gtk.Layout):
         self.adjustment.set_value(self.adjustment.get_value() - 1)
 
     def select(self):
-        self.emit('select', self.selected)
+        self.emit('selected', self.selected)
 
 
 class StationPicker(Picker):
@@ -200,8 +200,8 @@ class ChannelPicker(Gtk.Stack):
     # making it slightly more complex than the generic Picker or the StationPicker,
     # Still uses the generic Picker for each of those station channels lists though.
     __gsignals__ = {
-        'focus-change': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, (GObject.TYPE_PYOBJECT,)),
-        'select': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, (GObject.TYPE_PYOBJECT,)),
+        'focus-change': (GObject.SIGNAL_RUN_LAST, None, (GObject.TYPE_PYOBJECT,)),
+        'selected': (GObject.SIGNAL_RUN_LAST, None, (GObject.TYPE_PYOBJECT,)),
     }
 
     def __init__(self, stations, *args, **kwargs):
@@ -213,7 +213,7 @@ class ChannelPicker(Gtk.Stack):
             self.add_named(picker, station.title)
             # FIXME: There must be a better way to do this
             picker.connect('focus-change', lambda _, i: self.emit('focus-change', i))
-            picker.connect('select', lambda _, i: self.emit('select', i))
+            picker.connect('selected', lambda _, i: self.emit('selected', i))
 
     def next(self, *args):
         self.get_visible_child().next()
@@ -233,7 +233,12 @@ class ChannelPicker(Gtk.Stack):
 
 class StreamSelector(Gtk.Overlay):
     __gsignals__ = {
-        'select': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, (GObject.TYPE_PYOBJECT,)),
+        'selected': (GObject.SIGNAL_RUN_FIRST, None, (GObject.TYPE_PYOBJECT,)),
+        'select_channel': (GObject.SIGNAL_RUN_FIRST, None, ()),
+        'next_channel': (GObject.SIGNAL_RUN_FIRST, None, ()),
+        'prev_channel': (GObject.SIGNAL_RUN_FIRST, None, ()),
+        'next_station': (GObject.SIGNAL_RUN_FIRST, None, ()),
+        'prev_station': (GObject.SIGNAL_RUN_FIRST, None, ()),
     }
 
     def __init__(self):
@@ -303,23 +308,19 @@ class StreamSelector(Gtk.Overlay):
 
         self.channel_picker.connect('focus-change', self.on_channel_change)
         self.station_picker.connect('focus-change', self.on_station_change)
-        self.channel_picker.connect('select', lambda _, i: self.emit('select', i))
+        self.channel_picker.connect('selected', lambda _, i: self.emit('selected', i))
 
-        ## Functions for menu navigation
-        self.up = self.station_picker.prev
-        self.down = self.station_picker.next
-        self.left = self.channel_picker.prev
-        self.right = self.channel_picker.next
-        self.select = self.channel_picker.select
+        ## Signal handlers for menu navigation
+        ## These all get triggered by their associated signals being emitted
+        self.do_prev_station = self.station_picker.prev
+        self.do_next_station = self.station_picker.next
+        self.do_prev_channel = self.channel_picker.prev
+        self.do_next_channel = self.channel_picker.next
+        self.do_select_channel = self.channel_picker.select
 
     def on_channel_change(self, widget, channel):
         # FIXME: Get the NOW/NEXT info from EPG via the VFS
-        self.epg_label.set_text(EPG_TEMPLATE.format(
-            channel_title=channel.title,
-            now_title="N/A",
-            next_time="12:59pm",
-            next_title="N/A 2: The revenge of the the unknown",
-        ))
+        self.epg_label.set_text(EPG_TEMPLATE.format(channel=channel))
 
     def on_station_change(self, widget, station):
         self.station_label.set_text(station.title)
@@ -331,7 +332,7 @@ if __name__ == '__main__':
     window.connect("destroy", Gtk.main_quit)  # Quit & cleanup when closed
     ss = StreamSelector()
     window.add(ss)
-    ss.connect('select', lambda _, selected: print('Selected', selected))
+    ss.connect('selected', lambda _, selected: print('Selected', selected))
 
     def on_key_press(widget, event):
         # FIXME: Use -gtk-key-bindings in CSS for configuring this. Can't be done in Mike's current version
@@ -341,15 +342,15 @@ if __name__ == '__main__':
         if keyname == 'Escape':
             Gtk.main_quit()
         elif keyname == 'Up':
-            ss.up()
+            ss.emit('prev_station')
         elif keyname == 'Down':
-            ss.down()
+            ss.emit('next_station')
         elif keyname == 'Left':
-            ss.left()
+            ss.emit('prev_channel')
         elif keyname == 'Right':
-            ss.right()
+            ss.emit('next_channel')
         elif keyname in ('space', 'Return', 'KP_Enter'):
-            ss.select()
+            ss.emit('select_channel')
         else:
             print('Pressed unbound key:', keyname)
     window.connect('key-press-event', on_key_press)

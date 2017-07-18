@@ -8,6 +8,7 @@ TVDIR = '/home/mike/Videos/tv'
 
 Station = collections.namedtuple('Station', 'title icon channels')
 Channel = collections.namedtuple('Channel', 'title icon epg_brief uri')
+EPG_brief = collections.namedtuple('EPG_brief', 'now next next_starttime')
 
 # Test data.
 data = {'ABC': ['ABC2  ABC4',
@@ -66,7 +67,11 @@ class VirtualFilesystem():
                 station_channels.append(Channel(
                     title=channel_title,
                     icon=icon_filename,  # FIXME: Make this use a file-object or similar
-                    epg_brief=('now', 'next'),
+                    epg_brief=EPG_brief(
+                        now="Unknown: No data available",
+                        next="Unknown 2: The return of Data Corruption",
+                        next_starttime="23:59am",
+                    ),
                     uri='file:///dev/null',
                 ))
 
