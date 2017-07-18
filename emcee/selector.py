@@ -1,5 +1,7 @@
 from gi.repository import Gtk, GObject, Gdk, Pango
 import emcee.vfs
+import logging
+logger = logging.getLogger(__name__)
 
 # Note, BUTTON_SIZE should be slightly larger than the icon images themselves.
 # I'm not really sure how much larger as I never bothered to look for the numbers,
@@ -9,19 +11,15 @@ BUTTON_HEIGHT = 150  # FIXME: This is based on the current size of the channel g
 OFFSET_UPPER = BUTTON_HEIGHT * 0.75
 OFFSET_LEFT = BUTTON_WIDTH * 0.75
 
-EPG_TEMPLATE = "{channel.title}\nCurrently playing:\n  {channel.epg_brief.now}\nNext ({channel.epg_brief.next_starttime}):\n  {channel.epg_brief.next}"
+EPG_TEMPLATE = """{channel.title}
+Currently playing:
+  {channel.epg_brief.now}
+Next ({channel.epg_brief.next_starttime}):
+  {channel.epg_brief.next}"""
 
 # FIXME: Move this stylesheet out into a CSS file and import that as a theme in the application
 style_provider = Gtk.CssProvider()
 css = b"""
-GtkWindow {
-    background-color: #729fcf;
-    background-image: url("/usr/share/images/desktop-base/spacefun-wallpaper.svg");
-    background-size: cover;
-    background-position:   bottom right;
-    color: white;
-}
-
 GtkLabel#station-name, GtkLabel#epg {
     padding: 40px 0 0 40px;
     font-size: 2em;

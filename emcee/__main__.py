@@ -7,6 +7,7 @@ import logging
 import warnings
 logging_level = os.environ.get('EMCEEDEBUG')
 if logging_level:
+    # Unintuitively the lower the number in logging_level, the more logging you'll get.
     logging.basicConfig(level=int(logging_level))
 logger = logging.getLogger(__name__)
 
@@ -20,150 +21,215 @@ if ret == 0:
     warnings.warn('WARNING: X11 could not be initialised for threading, VLC performance will be signifcantly reduced')
 
 from gi.repository import Gtk, Gdk, GObject
+import emcee.selector
 import emcee.osd
 import emcee.player
 
-media_uri = sys.argv[1]
 
-window = Gtk.Window(title='Emcee')
-window.connect("destroy", lambda q: Gtk.main_quit())  # Quit & cleanup when closed
-window.show()
-
-overlay = Gtk.Overlay()
-window.add(overlay)
-
-vid = emcee.player.VLCWidget()
-overlay.add(vid)
-
-## OSD
-osd = emcee.osd.OSD()
-overlay.add_overlay(osd)
-
-# Can't just use overlay.show_all() because I want to use the OSD's show with smaller timeout than default
-vid.show_all()
-overlay.show()
-osd.show(3)
-
-## Keyboard input setup
-# FIXME: Make this configurable via a config file
+# FIXME: I'm seeing a few places online saying not to use keynames but the keyvals themselves instead.
+#        Gdk has a bunch of constants for name -> keyval mapping I think
+# FIXME: Use -gtk-key-bindings in CSS for configuring this. Can't be done in Jessie's version of Gtk.
+#   https://developer.gnome.org/gtk3/stable/gtk3-Bindings.html
+#   I think it comes in ~3.16 although the property name is "gtk-key-bindings" until a later version when the - is prefixed
 keybindings = {
-    # Volume
-    'Up': lambda: vid.emit('increment_volume', +0.02),
-    'Down': lambda: vid.emit('increment_volume', -0.02),
+    'general': {
+        'i': 'toggle_osd',
+        'F': 'fullscreen',
+        'f': 'unfullscreen',
+        'Escape': 'back',
+    },
+    'player': {
+        # Volume
+        'Up': ('increment_volume', +0.02),
+        'Down': ('increment_volume', -0.02),
 
-    # Time manipulation
-    'space': lambda: vid.emit('toggle_pause'),
-    'Left': lambda: vid.emit('seek', -20),  # 20 seconds back
-    'Right': lambda: vid.emit('seek', +30),  # 30 seconds forward
-    'Page_Up': lambda: vid.emit('seek', -300),  # 5 minutes back
-    'Page_Down': lambda: vid.emit('seek', +300),  # 5 minutes forward
-    'Home': lambda: vid.emit('set_time', 0),  # Jump to beginning
-    'End': lambda: vid.emit('set_time', -5),  # Jump to end (almost), for testing only
+        # Time manipulation
+        'space': ('toggle_pause'),
+        'Left': ('seek', -20),  # 20 seconds back
+        'Right': ('seek', +30),  # 30 seconds forward
+        'Page_Up': ('seek', -300),  # 5 minutes back
+        'Page_Down': ('seek', +300),  # 5 minutes forward
+        'Home': ('set_time', 0),  # Jump to beginning
+        'End': ('set_time', -5),  # Jump to end (almost), mostly just for testing
 
-    'p': lambda: vid.emit('play'),
-    'BackSpace': lambda: vid.emit('stop'),
+        'p': 'play',
+        'Escape': 'stop',
 
-    'F': window.fullscreen,
-    'f': window.unfullscreen,
+        's': 'increment_subtitles',
+        'a': 'increment_audio_track',
+    },
+    'selector': {
+        'Up': 'prev_station',
+        'Down': 'next_station',
+        'Left': 'prev_channel',
+        'Right': 'next_channel',
 
-    'i': osd.toggle,
-
-    's': lambda: print(vid.increment_subtitles()),
-    'S': lambda: print(vid.get_subtitles()),
-    'a': lambda: print(vid.increment_audio_track()),
-    'A': lambda: print(vid.get_audio_tracks()),
-
-    'Escape': Gtk.main_quit,
+        'space': 'select_channel',
+        'Return': 'select_channel',
+        'KP_Enter': 'select_channel',
+    },
 }
 
 
-def on_key_press(window, event):
-    keyname = Gdk.keyval_name(event.keyval)
-    if keyname in keybindings.keys():
-        logger.debug('Key pressed: %s', keyname)
-        if keybindings[keyname].__name__ == '<lambda>':
-            # Magic to try and pull some useful info from the lambda's code
-            logger.debug('Running lambda: %s %s',
-                         keybindings[keyname].__code__.co_names,
-                         keybindings[keyname].__code__.co_consts,
-                         )
-        else:
-            logger.debug('Running functon: %s', keybindings[keyname].__name__)
-        # Run the function or lambda stored in the keybindings dict
-        keybindings[keyname]()
-    else:
-        logger.debug('No keybinding found for %s', keyname)
+class Main(Gtk.Window):
+    __gsignals__ = {
+        'toggle_osd': (GObject.SIGNAL_RUN_FIRST, None, ()),
+        'back': (GObject.SIGNAL_RUN_FIRST, None, ()),
+        'fullscreen': (GObject.SIGNAL_RUN_FIRST, None, ()),
+        'unfullscreen': (GObject.SIGNAL_RUN_FIRST, None, ()),
+    }
 
-window.connect("key_press_event", on_key_press)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
-## This was written before the OSD was implemented, when I wanted some form of status info on the terminal.
-## Unnecessary now, but perhaps useful for reference.
-#
-# ## CLI output, showing current position and state
-# bar_length = 40  # FIXME: Somehow detect width of terminal and set this accordingly
-#
-#
-# def update_status(vid_widget):
-#     """Make a fancy looking progressbar with numbers for how far into the current movie you are"""
-#     if vid_widget.state == 'Opening':
-#         print('Loading', vid_widget.player.get_media().get_mrl())
-#     elif vid_widget.state not in ('Playing', 'Paused', 'Ended'):
-#         logger.info('VLC in unknown state: %s', vid_widget.state)
-#         return
-#     current_min = int(vid_widget.time / 60)
-#     current_sec = int(vid_widget.time % 60)
-#     bar = ''
-#     for i in range(0, int(bar_length * vid_widget.position) - 1):
-#         bar += '='
-#     bar += '||' if vid_widget.paused else '|>'
-#     for i in range(len(bar) - 1, bar_length):
-#         bar += '-'
-#     length_min = int(vid_widget.length / 60)
-#     length_sec = int(vid_widget.length % 60)
-#     # This does space padding for 4 characters (4) removes any decimal points (.0) and displays it as a percentage (%):
-#     #     {p:4.0%}
-#     print(
-#         "\r{cm:02}:{cs:02} [{bar}] {p:4.0%} {lm:02}:{ls:02} V: {v:4.0%} ".format(
-#             cm=current_min, cs=current_sec,
-#             bar=bar,
-#             p=vid_widget.position,
-#             lm=length_min, ls=length_sec,
-#             v=vid_widget.volume),
-#         end='')
-#
-# # FIXME: Should I hook this to other events?
-# vid.connect('paused', update_status)
-# #vid.connect('position_changed', update_status)  # Only really need either time or position, not both
-# vid.connect('time_changed', update_status)
-# vid.connect('volume_changed', update_status)
-# vid.connect('media_state', update_status)
+        self.overlay = Gtk.Overlay()
+        self.add(self.overlay)
+        self.overlay.show()
 
+        self.osd = emcee.osd.OSD()
+        self.overlay.add_overlay(self.osd)
+        # Not showing this yet as I want it hidden by default
 
-# FIXME: This also triggers when the media is first loaded, I don't want that.
-#        Perhaps I can set an event hook to trigger *after* media loads, which then sets up this hook?
-vid.connect('volume_changed', lambda _: osd.push_status("Volume: {v:4.0%}".format(v=vid.volume)))
+        self.selector = emcee.selector.StreamSelector()
+        self.selector.show_all()
 
+        self.overlay.add(self.selector)
+        self.mode = 'selector'
+        self.selector.connect('selected', self.on_selected)
 
-## Resize when media is finished loading (don't know the resolution before that)
-def on_load(vid_widget):
-    media_title = vid_widget.get_title()
-    media_title = media_title.rpartition('.')[0]  # FIXME: Will there always be an extension?
-    window.set_title('Emcee - {}'.format(media_title))
-    # NOTE: Without using idle_add here an intermittent issue will occur with Gtk getting stuck.
-    GObject.idle_add(osd.set_title, media_title)
-    size = vid_widget.player.video_get_size()
-    if size != (0, 0):
-        # NOTE: Without using idle_add here an intermittent issue will occur with Gtk getting stuck.
-        GObject.idle_add(window.resize, *size)
+        self._init_player()
 
-vid.connect('loaded', on_load)
+    def _init_player(self):
+        self.player = emcee.player.VLCWidget()
+        self.player.load_media(sys.argv[1])  # FIXME: Early testing only, remove this!
+        self.player.show_all()
 
-# FIXME: This doesn't cleanup VLC
-#        Ideally GTK would have a on_quit hook of some sort where I can tell it to destroy the VLC instance and such.
-#        My Google-fu seems to indicate that is not the case so I may need a custom emcee.quit() function that does all of that
-vid.connect('error', lambda _: Gtk.main_quit())  # Quit & cleanup when VLC has an error
-vid.connect('end_reached', lambda _: Gtk.main_quit())  # Quit & cleanup when finished media file
+        # FIXME: Do we need to hook into vlc.EventType.VlmMediaInstanceStopped as well?
+        self.player.connect('error', self.on_stop_playback)
+        self.player.connect('end_reached', self.on_stop_playback)
+        self.player.connect('media_state', self.on_media_state)
 
-vid.load_media(media_uri)
-vid.emit('play')
-Gtk.main()
+        # FIXME: This also triggers when the media is first loaded, I don't want that.
+        # FIXME: This is also triggering when the media stops.
+        self.player.connect('volume_changed', lambda _, v: self.osd.push_status("Volume: {v:4.0%}".format(v=v)))
+
+    def on_media_state(self, player, state):
+        ## player is the player widget as given by the event, this is the same as self.player
+        logger.debug('State changed to %s', state)
+        if state == 'Playing':
+            # Rename the window
+            media_title = player.get_title()
+            media_title = media_title.rpartition('.')[0]  # FIXME: Will there always be an extension?
+            self.orig_title = self.get_title()
+            self.set_title('{} - {}'.format(self.orig_title, media_title))
+            # NOTE: Without using idle_add here an intermittent issue will occur with Gtk getting stuck.
+            # FIXME: Not reproducing it now, but keep that in mind.
+            self.osd.set_title(media_title)
+        elif state == 'Stopped':
+            # FIXME: Is there a better VLC event to hook for this?
+            self.on_stop_playback(self.player)
+
+    def on_selected(self, selector, item):
+        ## selector is the selector widget as given by the event, this is the same as self.selector
+        # Activate any loading screen as early as possible before actually loading the media.
+        self.mode = "player"
+        self.get_style_context().add_class("loading")
+        self.overlay.remove(selector)
+
+        # Set up the player
+        logger.debug("self.player.load_media(%s)", item.uri)  # FIXME: Enable this when actually giving it a real uri
+        # Is it worth actually running load_media when changing focus in the selector?
+        # Or perhaps when the user stops changing focus for a second?
+        # We can't put the playback in the background of the menu, but maybe at least start buffering without the user knowing
+
+        self.overlay.add(self.player)
+        self.player.show()
+        # Make sure to play *after* showing, or VLC could end up creating it's own window.
+        # UPDATE: I think this is no longer entirely valid and play can be run before show,
+        #         but must be after adding the widget to window object (or child thereof)
+        self.player.emit('play')
+        self.osd.show(5)
+
+    def on_stop_playback(self, player):
+        ## player is the player widget as given by the event, this is the same as self.player
+        self.mode = 'selector'
+        self.osd.set_title('')
+
+        self.overlay.remove(player)
+        self.set_title(self.orig_title)
+        self.overlay.add(self.selector)
+
+        self.get_style_context().remove_class("loading")
+        # FIXME: Doesn't actually hide because the volume_changed signal triggers as the media stops
+        self.osd.hide()
+
+    def do_key_press_event(self, EventKey):
+        keyname = Gdk.keyval_name(EventKey.keyval)
+        keybind = keybindings[self.mode].get(keyname, None)
+        fallback = keybindings['general'].get(keyname, None)
+        print(EventKey)
+        print(dir(EventKey))
+
+        if not keybind and not fallback:
+            logger.debug('No keybinding found for %s', keyname)
+        elif keybind:
+            logger.debug('User pressed %s, performing %s action: %s', keyname, self.mode, keybind)
+            args = keybind if type(keybind) == tuple else (keybind,)
+            if self.mode == 'selector':
+                self.selector.emit(*args)
+            elif self.mode == 'player':
+                self.player.emit(*args)
+        elif fallback:
+            logger.debug('User pressed %s, performing action: %s', keyname, fallback)
+            args = fallback if type(fallback) == tuple else (fallback,)
+            self.emit(*args)
+
+    def do_back(self):
+        Gtk.main_quit()
+
+    def do_toggle_osd(self):
+        self.osd.toggle()
+
+    def do_fullscreen(self):
+        self.fullscreen()
+
+    def do_unfullscreen(self):
+        self.unfullscreen()
+
+if __name__ == '__main__':
+    style_provider = Gtk.CssProvider()
+    css = b"""
+        @keyframes loading {
+            0% { background-color: #204a87; }
+            34% { background-color: #3465a4; }
+            67% { background-color: #729fcf; }
+            100% { background-color: #204a87; }
+        }
+        GtkWindow {
+            background-color: #729fcf;
+            background-image: url("/usr/share/images/desktop-base/spacefun-wallpaper.svg");
+            background-size: cover;
+            background-position: bottom right;
+            color: white;
+        }
+        GtkWindow.loading {
+            /* background-color: green; */
+            background-image: none;
+            animation: loading infinite linear 3s;
+        }
+
+        GtkFrame {
+            /* FIXME: The window background is showing in the overlay, give it it's own white background */
+        }
+    """
+    style_provider.load_from_data(css)
+    Gtk.StyleContext.add_provider_for_screen(
+        Gdk.Screen.get_default(),
+        style_provider,
+        Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+    )
+
+    win = Main(title='Emcee')
+    win.show()
+    win.connect('destroy', Gtk.main_quit)
+    Gtk.main()
