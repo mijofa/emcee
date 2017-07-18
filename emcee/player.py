@@ -43,12 +43,12 @@ class VLCWidget(Gtk.DrawingArea):
     __gsignals__ = {
         # Signals emitted internally for status updates to be collected externally
         'end_reached': (GObject.SIGNAL_ACTION, None, ()),
-        'time_changed': (GObject.SIGNAL_ACTION, None, ()),
-        'position_changed': (GObject.SIGNAL_ACTION, None, ()),
-        'volume_changed': (GObject.SIGNAL_ACTION, None, ()),
+        'time_changed': (GObject.SIGNAL_ACTION, None, (int,)),
+        'position_changed': (GObject.SIGNAL_ACTION, None, (int,)),
+        'volume_changed': (GObject.SIGNAL_ACTION, None, (int,)),
         'paused': (GObject.SIGNAL_ACTION, None, ()),
         'playing': (GObject.SIGNAL_ACTION, None, ()),
-        'media_state': (GObject.SIGNAL_ACTION, None, ()),
+        'media_state': (GObject.SIGNAL_ACTION, None, (str,)),
         'error': (GObject.SIGNAL_ACTION, None, ()),
         'loaded': (GObject.SIGNAL_ACTION, None, ()),
         'initialised': (GObject.SIGNAL_ACTION, None, ()),
@@ -85,7 +85,10 @@ class VLCWidget(Gtk.DrawingArea):
         # Initialise the DrawingArea
         super(VLCWidget, self).__init__(*args)
         self.set_size_request(640, 360)  # FIXME: Magic number, is a small 16:9 ratio for the default window size
-        self.override_background_color(0, Gdk.RGBA(red=0, green=0, blue=0))  # Fill it with black
+        # Could do this background in CSS, but I'd rather enforce it here in code.
+        # This makes sure that when playing a video of a different aspect ratio to the current window,
+        # the widget will properly display black borders. VLC does not do this for me.
+        self.override_background_color(0, Gdk.RGBA(red=0, green=0, blue=0))
 
         # Create the VLC instance, and tell it how to inject itself into the DrawingArea widget.
         self.instance = vlc.Instance()
@@ -145,15 +148,15 @@ class VLCWidget(Gtk.DrawingArea):
         # Surprisingly, the VLC event object doesn't include the new volume.
         # So Need to query that here
         self.volume = self.player.audio_get_volume() / 100
-        self.emit('volume_changed')
+        self.emit('volume_changed', self.volume)
 
     def _on_time_changed(self, event):
         self.time = event.u.new_time / 1000
-        self.emit('time_changed')
+        self.emit('time_changed', self.time)
 
     def _on_position_changed(self, event):
         self.position = event.u.new_position
-        self.emit('position_changed')
+        self.emit('position_changed', self.position)
 
     ## Internally used functions ##
     def _on_state_change(self, event):
@@ -165,7 +168,7 @@ class VLCWidget(Gtk.DrawingArea):
         ## This is not at all intuitive, but I'm at the mercy of the VLC library here.
         self.state = vlc.State._enum_names_[event.u.new_state]
 
-        self.emit('media_state')
+        self.emit('media_state', self.state)
 
     def _on_parsed(self, event):
         """Handle once-off reading of media metadata"""
@@ -201,6 +204,7 @@ class VLCWidget(Gtk.DrawingArea):
             logger.debug('    deffered')
             # VLC not yet initialised so can't actually load the media yet.
             # Rerun ourselves when VLC has been initialised.
+            ## FIXME: This creates a permanent connection? That would be bad.
             self.connect('initialised', lambda _: self._load_media(uri=uri, local=local))
             return False
 
@@ -229,7 +233,6 @@ class VLCWidget(Gtk.DrawingArea):
         media_em.event_attach(vlc.EventType.MediaParsedChanged, self._on_parsed)
 
         self.player.set_media(media)
-        self.emit('play')
 
     def do_play(self):
         """Play if currently paused or stopped"""
