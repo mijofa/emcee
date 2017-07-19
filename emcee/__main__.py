@@ -31,6 +31,8 @@ import emcee.player
 # FIXME: Use -gtk-key-bindings in CSS for configuring this. Can't be done in Jessie's version of Gtk.
 #   https://developer.gnome.org/gtk3/stable/gtk3-Bindings.html
 #   I think it comes in ~3.16 although the property name is "gtk-key-bindings" until a later version when the - is prefixed
+# FIXME: Use Keybinder or similar to steal the media keys while Emcee is running even if not in focus?
+#   https://lazka.github.io/pgi-docs/Keybinder-3.0/index.html
 keybindings = {
     'general': {
         'i': 'toggle_osd',
