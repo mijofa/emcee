@@ -28,25 +28,16 @@ css = b"""
     }
     /* FIXME: Is there a "big" font option? Is it big enough for a 10-foot UI? */
     #osd #title {
-        font-size: 30px
+        font-size: 2em;
     }
     #osd #status, #osd #clock {
-        font-size: 25px
+        font-size: 2em;
     }
 
     #osd #clock {
         /* I want to keep the clock from detracting focus away from the other (more important) text */
         opacity: 0.65;  /* FIXME: Magic number, fairly arbitrary, it looks nice. */
     }
-
-    /* FIXME: Only here for testing, remove them */
-/*    #osd #clock {
- *        color: red;
- *    }
- *    #osd #status {
- *        color: blue;
- *    }
- */
 """
 style_provider.load_from_data(css)
 Gtk.StyleContext.add_provider_for_screen(
@@ -195,7 +186,7 @@ class OSD(Gtk.Frame):
 
 if __name__ == '__main__':
     import sys
-    logger.basicConfig(level=logger.DEBUG)
+    logging.basicConfig(level=logging.DEBUG)
 
     win = Gtk.Window()
     win.override_background_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(0, 0, 0, 1))  # Set the background to black
