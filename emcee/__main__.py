@@ -169,8 +169,6 @@ class Main(Gtk.Window):
         keyname = Gdk.keyval_name(EventKey.keyval)
         keybind = keybindings[self.mode].get(keyname, None)
         fallback = keybindings['general'].get(keyname, None)
-        print(EventKey)
-        print(dir(EventKey))
 
         if not keybind and not fallback:
             logger.debug('No keybinding found for %s', keyname)
