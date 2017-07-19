@@ -2,45 +2,14 @@
 # For now however, it just returns the lists I want for testing, I'll implement the actual backing store later
 
 import os
-import sys
-import collections
 import random
 import gi
 gi.require_version('GLib', '2.0')
 from gi.repository import GLib
+import collections
+import configparser
 
-TVDIR = '/home/mike/Videos/tv'
-
-# Test data.
-data = {'ABC': ['ABC News 24',
-                'ABC',
-                'ABC2 KIDS',
-                'ABC ME',
-                'ABC HD',
-                'Double J',
-                'ABC Jazz'],
-        'C31': ['C31'],
-        'Nine Network Australia': ['Nine Melbourne',
-                                   '9HD Melbourne',
-                                   'GO!',
-                                   '9Life',
-                                   'Extra',
-                                   'GEM'],
-        'SBS': ['SBS ONE',
-                'SBS TWO',
-                'Food Network',
-                'NITV',
-                'SBS HD',
-                'SBS Radio 1',
-                'SBS Radio 2',
-                'SBS Radio 3'],
-        'Seven Network': ['7 Digital',
-                          '7TWO',
-                          '7mate',
-                          '7flix Melbourne',
-                          'TV4ME',
-                          'RACING.COM'],
-        'Ten Melbourne': ['TEN Digital', 'TVSN', 'ONE', 'ELEVEN', 'SpreeTV']}
+TVDIR = '/srv/share/tv'
 
 
 with open('epgs', 'r') as f:
@@ -67,27 +36,46 @@ class VirtualFilesystem():
     def list_stations(self):
         stations = []
         ind = 0
-        for station_title in sorted(data):
+        for root, dirs, files in os.walk(TVDIR):
+            assert root.startswith(TVDIR)
+            root = root[len(TVDIR):].strip('/')  # Remove the TVDIR prefix
+            assert '/' not in root
 
-            station_channels = []
-            for channel_title in data.get(station_title):
-                if os.path.isfile('{}/{}/{}.svg'.format(TVDIR, station_title, channel_title)):
-                    icon_filename = '{}/{}/{}.svg'.format(TVDIR, station_title, channel_title)
-                elif os.path.isfile('{}/{}/{}.gif'.format(TVDIR, station_title, channel_title)):
-                    icon_filename = '{}/{}/{}.gif'.format(TVDIR, station_title, channel_title)
-                else:
-                    icon_filename = None
-                station_channels.append(Channel(
-                    title=channel_title,
-                    icon=icon_filename,  # FIXME: Make this use a file-object or similar
-                    uri='{}'.format(sys.argv[-1]),
+            # Don't traverse hidden directories
+            for d in dirs:
+                if d.startswith('.'):
+                    dirs.remove(d)
+
+            if not root:
+                # This is the TVDIR itself
+                continue
+
+            # Create the station definition
+            st = Station(
+                title=root,
+                icon=os.path.join(TVDIR, root, 'folder.gif') if 'folder.gif' in files else None,
+                channels=[],  # Updated below
+            )
+            stations.append(st)
+
+            # Create the channel definitions
+            for ch in files:
+                if not ch.endswith('.info'):
+                    # Not a channel definition file
+                    continue
+
+                cfg = configparser.ConfigParser()
+                cfg.read(os.path.join(TVDIR, root, ch))
+                title = ch[:-5]  # Remove the '.info'
+                st.channels.append(Channel(
+                    title=ch[:-5],  # Remove the '.info'
+                    icon=os.path.join(TVDIR, root, title + '.gif') if title + '.gif' in files else None,
+                    uri=cfg.get('local', 'filename'),
                 ))
                 ind += 2
 
-            stations.append(Station(
-                title=station_title,
-                icon=station_channels[0].icon,  # FIXME: Make this use a file-object or similar
-                channels=station_channels,
-            ))
-
         return stations
+
+if __name__ == '__main__':
+    import pprint
+    pprint.pprint(VirtualFilesystem().list_stations())
