@@ -85,15 +85,22 @@ class VLCWidget(Gtk.DrawingArea):
         logger.debug('VLCWidget emitting %s', ev_name)
         super().emit(ev_name, *args, **kwargs)
 
+    def do_draw(self, context):
+        """Since VLC doesn't add the black borders around media of different aspect ratios,
+           we have to draw that ourselves.
+           This can't be done in CSS, or using (deprecated) override_background_color()
+           because Gtk.DrawingArea is intentionally too dumb to do that.
+        """
+        # FIXME: Can we do this just when resizing?
+        #        Seems inneficient to redraw every frame when it never changes.
+        context.set_source_rgb(0, 0, 0)
+        context.paint()
+
     def __init__(self, *args):
 
         # Initialise the DrawingArea
         super(VLCWidget, self).__init__(*args)
         self.set_size_request(640, 360)  # FIXME: Magic number, is a small 16:9 ratio for the default window size
-        # Could do this background in CSS, but I'd rather enforce it here in code.
-        # This makes sure that when playing a video of a different aspect ratio to the current window,
-        # the widget will properly display black borders. VLC does not do this for me.
-        self.override_background_color(0, Gdk.RGBA(red=0, green=0, blue=0))
 
         # Create the VLC instance, and tell it how to inject itself into the DrawingArea widget.
         self.instance = vlc.Instance()
