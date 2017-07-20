@@ -93,6 +93,7 @@ class VLCWidget(Gtk.DrawingArea):
         """
         # FIXME: Can we do this just when resizing?
         #        Seems inneficient to redraw every frame when it never changes.
+        # NOTE: This requires the cairo gi libraries be installed, although not imported
         context.set_source_rgb(0, 0, 0)
         context.paint()
 
