@@ -18,6 +18,11 @@ logger = logging.getLogger(__name__)
 #if ret == 0:
 #    print('WARNING: X11 could not be initialised for threading, VLC performance will be signifcantly reduced', file=sys.stderr)
 
+import gi
+gi.require_version('Gtk', '3.0')
+gi.require_version('Gdk', '3.0')
+gi.require_version('GObject', '2.0')
+gi.require_version('GdkX11', '3.0')
 from gi.repository import Gtk, Gdk, GObject
 # Without GdkX11 being imported GTK widgets don't get the get_xid() function,
 # so even though this widget is never directly called we still need to import it.

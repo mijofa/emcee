@@ -3,6 +3,12 @@
 import time
 import logging
 logger = logging.getLogger(__name__)
+import gi
+gi.require_version('Gtk', '3.0')
+gi.require_version('Gdk', '3.0')
+gi.require_version('Pango', '1.0')
+gi.require_version('GObject', '2.0')
+gi.require_version('GLib', '2.0')
 from gi.repository import Gtk, Gdk, Pango, GObject, GLib
 
 TIME_FORMAT = '%X'  # FIXME: Confirm that '%X' really does change with locale

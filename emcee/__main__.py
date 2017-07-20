@@ -20,6 +20,10 @@ ret = x11.XInitThreads()
 if ret == 0:
     warnings.warn('WARNING: X11 could not be initialised for threading, VLC performance will be signifcantly reduced')
 
+import gi
+gi.require_version('Gtk', '3.0')
+gi.require_version('Gdk', '3.0')
+gi.require_version('GObject', '2.0')
 from gi.repository import Gtk, Gdk, GObject
 import emcee.selector
 import emcee.osd
