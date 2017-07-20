@@ -25,12 +25,12 @@ Next ({channel.epg_brief.next_starttime}):
 # FIXME: Move this stylesheet out into a CSS file and import that as a theme in the application
 style_provider = Gtk.CssProvider()
 css = b"""
-GtkLabel#station-name, GtkLabel#epg {
+#station-name, #epg {
     padding: 40px 0 0 40px;
     font-size: 2em;
 }
 
-.button {
+.button, button {
     font-size: 90px;  /* FIXME: Magic number based on the icon size */
     border-radius: 99999px;  /* FIXME: This is a stupid number to put here */
 
@@ -44,7 +44,7 @@ GtkLabel#station-name, GtkLabel#epg {
 }
 
 /*
- * GtkImage {
+ * GtkImage, image {
  *     box-shadow: none;
  *     border-style: none;
  *     border-image: none;
@@ -53,22 +53,23 @@ GtkLabel#station-name, GtkLabel#epg {
  * }
  */
 
-.button.inactive {
+.button.inactive, button.inactive {
     /* I wanted to make inactive icons smaller, but CSS can't be used to change the size of objects.
      * I think this can be done with a background image, but not worth the effort
      */
     opacity: 0.4;
 }
-.inactive.button:hover{
+.button.inactive:hover, button.inactive:hover{
     /* Only highlight the .active one, because the ? buttons don't highlight
      * and it's less noticable on .active than on .inactive */
     opacity: 0.6;
 }
-.active.button:hover {
+.button.active:hover, button.active:hover{
+    /* I know this is deprecated, but I want it to work on Jessie & Stretch */
     -gtk-image-effect: highlight;
 /*    -gtk-image-effect: highlight/dim/none; */
 }
-#StationPicker * .button.active {
+#StationPicker * .button.active, #StationPicker * button.active {
     /* This button is directly behind the active ChannelPicker, make it invisible */
     opacity: 0;
 }
