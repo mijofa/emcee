@@ -2,14 +2,24 @@ Source: emcee
 Section: video
 Priority: optional
 Maintainer: Mike Abrahall <mike-deb@cyber.com.au>
-Build-Depends: debhelper (>=10)
+Build-Depends: debhelper (>=10), dh-python,
+ python3-all,
+ python3-setuptools
 Standards-Version: 3.9.8
 #Homepage: <insert the upstream URL, if relevant>
 #Vcs-Git: git://anonscm.debian.org/collab-maint/emcee.git
 #Vcs-Browser: https://anonscm.debian.org/cgit/collab-maint/emcee.git
 
-Package: emcee
-Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}
+Package: python3-emcee
+Provides: emcee
+Architecture: all
+Depends: ${shlibs:Depends}, ${misc:Depends}, ${python3:Depends},
+ gir1.2-gtk-3.0,
+ python3-gi,
+# See emcee/player.py:VLCWidget.do_draw()
+ python3-gi-cairo,
+# FIXME: python3-vlc not packaged as deb
+#        https://www.olivieraubert.net/vlc/python-ctypes/
+ vlc
 Description: <insert up to 60 chars description>
  <insert long description, indented with spaces>
