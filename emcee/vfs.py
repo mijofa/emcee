@@ -11,36 +11,36 @@ Channel = collections.namedtuple('Channel', 'title icon epg_brief uri')
 EPG_brief = collections.namedtuple('EPG_brief', 'now next next_starttime')
 
 # Test data.
-data = {'ABC': ['ABC2  ABC4',
-                'ABC3',
+data = {'ABC': ['ABC',
                 'ABC HD',
-                'ABC',
-                'ABC Jazz',
+                'ABC2  ABC4',
+                'ABC3',
                 'ABC News 24',
+                'ABC Jazz',
                 'Double J'],
         'Internal': ['PPC Local 1', 'PPC Local 2'],
         'Nine Network Australia': ['9HD',
+                                   'Nine Melbourne',
                                    '9Life',
                                    'EXTRA',
                                    'GEM',
                                    'GO!',
-                                   'Nine Melbourne',
                                    'WIN'],
-        'SBS': ['Food Network',
-                'NITV',
-                'SBS HD',
+        'SBS': ['SBS HD',
                 'SBS ONE',
+                'SBS TWO',
+                'Food Network',
+                'NITV',
                 'SBS Radio 1',
                 'SBS Radio 2',
-                'SBS Radio 3',
-                'SBS TWO'],
+                'SBS Radio 3'],
         'Seven Network': ['7 Digital', '7flix', '7mate', '7TWO', 'Racing'],
-        'WIN Television': ['GOLD',
+        'WIN Television': ['WIN Canberra',
                            'WIN Canberra HD',
+                           'ELEVEN Canberra',
                            'ONE Canberra',
                            'TVSN',
-                           'ELEVEN Canberra',
-                           'WIN Canberra'],
+                           'GOLD'],
         'Southern Cross': ['9Life',
                            'Nine Canberra',
                            'Aspire',
@@ -54,7 +54,7 @@ data = {'ABC': ['ABC2  ABC4',
 class VirtualFilesystem():
     def list_stations(self):
         stations = []
-        for station_title in sorted(data):
+        for station_title in data:
 
             station_channels = []
             for channel_title in data.get(station_title):
