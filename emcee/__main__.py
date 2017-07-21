@@ -209,28 +209,31 @@ if __name__ == '__main__':
             67% { background-color: #729fcf; }
             100% { background-color: #204a87; }
         }
-        GtkWindow, window {
+        GtkWindow,  /* Jessie */
+        window      /* Stretch */
+        {
             background-color: #729fcf;
             background-image: url("/usr/share/images/desktop-base/spacefun-wallpaper.svg");
             background-size: cover;
             background-position: bottom right;
             color: white;
         }
-        /*
-        GtkWindow.loading, window.loading {
-             background-color: green; 
-            background-image: none;
-            animation: loading infinite linear 3s;
-        }
-         */
-
-        GtkFrame, frame {
+        GtkFrame,  /* Jessie */
+        frame      /* Stretch */
+        {
             /* FIXME: The window background is showing in the overlay, give it it's own white background */
         }
-        GtkDrawingArea, DrawingArea, drawingArea, drawingarea, .player {
-            background-color: red;
-        }
     """
+#        /*
+#         * GtkWindow.loading,  /* Jessie */
+#         * window.loading      /* Stretch */
+#         * {
+#         *     background-color: green;
+#         *     background-image: none;
+#         *     animation: loading infinite linear 3s;
+#         * }
+#         */
+
     style_provider.load_from_data(css)
     Gtk.StyleContext.add_provider_for_screen(
         Gdk.Screen.get_default(),

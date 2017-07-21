@@ -30,7 +30,9 @@ css = b"""
     font-size: 2em;
 }
 
-.button, button {
+.button,  /* Jessie */
+button    /* Stretch */
+{
     font-size: 90px;  /* FIXME: Magic number based on the icon size */
     border-radius: 99999px;  /* FIXME: This is a stupid number to put here */
 
@@ -43,42 +45,51 @@ css = b"""
     background-image: none;
 }
 
-/*
- * GtkImage, image {
- *     box-shadow: none;
- *     border-style: none;
- *     border-image: none;
- *     background-image: none;
- *     background-color: transparent;
- * }
- */
-
-.button.inactive, button.inactive {
+.button.inactive,  /* Jessie */
+button.inactive    /* Stretch */
+{
     /* I wanted to make inactive icons smaller, but CSS can't be used to change the size of objects.
      * I think this can be done with a background image, but not worth the effort
      */
     opacity: 0.4;
 }
-.button.inactive:hover, button.inactive:hover{
+.button.inactive:hover,  /* Jessie */
+button.inactive:hover    /* Stretch */
+{
     /* Only highlight the .active one, because the ? buttons don't highlight
      * and it's less noticable on .active than on .inactive */
     opacity: 0.6;
 }
-.button.active:hover, button.active:hover{
+.button.active:hover,  /* Jessie */
+button.active:hover    /* Stretch */
+{
     /* I know this is deprecated, but I want it to work on Jessie & Stretch */
     -gtk-image-effect: highlight;
 /*    -gtk-image-effect: highlight/dim/none; */
 }
-#StationPicker * .button.active, #StationPicker * button.active {
+#StationPicker * .button.active,  /* Jessie */
+#StationPicker * button.active    /* Stretch */
+{
     /* This button is directly behind the active ChannelPicker, make it invisible */
     opacity: 0;
 }
 """
+#/*
+# * GtkImage,  /* Jessie */
+# * image      /* Stretch */
+# * {
+# *     box-shadow: none;
+# *     border-style: none;
+# *     border-image: none;
+# *     background-image: none;
+# *     background-color: transparent;
+# * }
+# */
 style_provider.load_from_data(css)
 Gtk.StyleContext.add_provider_for_screen(
-    Gdk.Screen.get_default(),
-    style_provider,
-    Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+    screen=Gdk.Screen.get_default(),
+    provider=style_provider,
+    priority=Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
 )
 
 

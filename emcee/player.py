@@ -23,7 +23,7 @@ gi.require_version('Gtk', '3.0')
 gi.require_version('Gdk', '3.0')
 gi.require_version('GObject', '2.0')
 gi.require_version('GdkX11', '3.0')
-from gi.repository import Gtk, Gdk, GObject
+from gi.repository import Gtk, GObject
 # Without GdkX11 being imported GTK widgets don't get the get_xid() function,
 # so even though this widget is never directly called we still need to import it.
 from gi.repository import GdkX11  # noqa: F401

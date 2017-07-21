@@ -47,9 +47,9 @@ css = b"""
 """
 style_provider.load_from_data(css)
 Gtk.StyleContext.add_provider_for_screen(
-    Gdk.Screen.get_default(),
-    style_provider,
-    Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+    screen=Gdk.Screen.get_default(),
+    provider=style_provider,
+    priority=Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
 )
 
 
