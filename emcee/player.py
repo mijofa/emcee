@@ -187,6 +187,8 @@ class VLCWidget(Gtk.DrawingArea):
         """Handle once-off reading of media metadata"""
         # This function triggers when parsed state changes not just when it's parsed, so check that it is currently parsed
         if self.player.get_media().is_parsed():
+            # FIXME: Doesn't recognise teletext subtitle
+            #        Perhaps I just don't have that vlc module installed?
             if 0 == self.player.video_get_spu_count():
                 self.subtitles = {-1: 'No subtitles found'}
             else:

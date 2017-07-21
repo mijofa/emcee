@@ -40,8 +40,8 @@ import emcee.player
 keybindings = {
     'general': {
         'i': 'toggle_osd',
-        'F': 'fullscreen',
-        'f': 'unfullscreen',
+        'f': 'fullscreen',
+        'F': 'unfullscreen',
         'Escape': 'back',
     },
     'player': {
@@ -61,8 +61,8 @@ keybindings = {
         'p': 'play',
         'Escape': 'stop',
 
-        's': 'increment_subtitles',
-        'a': 'increment_audio_track',
+        's': ('increment_subtitles', +1),
+        'a': ('increment_audio_track', +1),
     },
     'selector': {
         'Up': 'prev_station',
