@@ -68,8 +68,8 @@ class VLCWidget(Gtk.DrawingArea):
         'increment_volume': (GObject.SIGNAL_RUN_FIRST, None, (float,)),
         'set_subtitles': (GObject.SIGNAL_RUN_FIRST, None, (int,)),
         'increment_subtitles': (GObject.SIGNAL_RUN_FIRST, None, (int,)),
-        'set_audio_tracks': (GObject.SIGNAL_RUN_FIRST, None, (int,)),
-        'increment_audio_tracks': (GObject.SIGNAL_RUN_FIRST, None, (int,)),
+        'set_audio_track': (GObject.SIGNAL_RUN_FIRST, None, (int,)),
+        'increment_audio_track': (GObject.SIGNAL_RUN_FIRST, None, (int,)),
     }
 
     # Initialise state variables
