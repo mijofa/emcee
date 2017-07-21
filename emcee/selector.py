@@ -35,6 +35,7 @@ button    /* Stretch */
 {
     font-size: 90px;  /* FIXME: Magic number based on the icon size */
     border-radius: 99999px;  /* FIXME: This is a stupid number to put here */
+    color: green;
 
     /* Remove the button style entirely and just display the image */
     box-shadow: none;
@@ -43,6 +44,7 @@ button    /* Stretch */
      *  That must be removed before we can change the background-color
      */
     background-image: none;
+    transition: 1s ease-in-out;
 }
 
 .button.inactive,  /* Jessie */
@@ -52,6 +54,7 @@ button.inactive    /* Stretch */
      * I think this can be done with a background image, but not worth the effort
      */
     opacity: 0.4;
+    color: grey;
 }
 .button.inactive:hover,  /* Jessie */
 button.inactive:hover    /* Stretch */
@@ -66,6 +69,13 @@ button.active:hover    /* Stretch */
     /* I know this is deprecated, but I want it to work on Jessie & Stretch */
     -gtk-image-effect: highlight;
 /*    -gtk-image-effect: highlight/dim/none; */
+}
+#ChannelPicker #Picker {
+    opacity: 0;
+    transition: 1s ease-in-out;
+}
+#ChannelPicker #Picker.active{
+    opacity: 1;
 }
 #StationPicker * .button.active,  /* Jessie */
 #StationPicker * button.active    /* Stretch */
@@ -94,10 +104,21 @@ Gtk.StyleContext.add_provider_for_screen(
 
 
 class ImageOrLabelButton(Gtk.Button):
+    __gsignals__ = {
+        'focus-in': (GObject.SIGNAL_RUN_FIRST, None, ()),
+        'focus-out': (GObject.SIGNAL_RUN_FIRST, None, ()),
+    }
+    saturated = False
+    pixbuf_copy = None
+
     def __init__(self, title, icon):
         super().__init__()
+        self.title = title
         if icon:
-            self.set_image(Gtk.Image.new_from_file(icon))
+            image = Gtk.Image.new_from_file(icon)
+            self.pixbuf_copy = image.get_pixbuf().copy()
+            self.pixbuf_copy.saturate_and_pixelate(image.get_pixbuf(), 0, False)
+            self.set_image(image)
             self.set_always_show_image(True)
         else:
             self.set_label('?')  # FIXME: Style this better.
@@ -114,6 +135,23 @@ class ImageOrLabelButton(Gtk.Button):
         self.set_can_focus(False)
         self.get_style_context().add_class('inactive')
 
+    def do_focus_in(self):
+        self.get_style_context().remove_class('inactive')
+        self.get_style_context().add_class('active')
+        print("Focus in", self.title, self.saturated)
+        if self.pixbuf_copy and not self.saturated:
+            print("Not saturated, saturating", self.title)
+            self.pixbuf_copy.saturate_and_pixelate(self.get_image().get_pixbuf(), 1, False)
+            self.saturated = True
+
+    def do_focus_out(self):
+        self.get_style_context().remove_class('active')
+        self.get_style_context().add_class('inactive')
+        if self.pixbuf_copy and self.saturated:
+            print("Saturated, desaturating", self.title)
+            self.pixbuf_copy.saturate_and_pixelate(self.get_image().get_pixbuf(), 0, False)
+            self.saturated = False
+
 
 class Picker(Gtk.Layout):
     # Generic scroller for any number of itmes in a single row or column.
@@ -128,6 +166,7 @@ class Picker(Gtk.Layout):
         self.items = items
 
         super().__init__(*args, **kwargs)
+        self.set_name("Picker")
 
         # It's easier to move one box around than it is to have move around all the buttons themselves.
         if self.orientation == 'vertical':
@@ -178,8 +217,7 @@ class Picker(Gtk.Layout):
 
     def do_focus_change(self, item):
         ind = self.items.index(item)
-        self.buttons[ind].get_style_context().remove_class('inactive')
-        self.buttons[ind].get_style_context().add_class('active')
+        self.buttons[ind].emit('focus-in')
 
         # FIXME: This handler_id thing is a horrible hack
         # Since lists are immutable, I'm able to abuse the shit out of it to get the result of self.connect into it's own arguments
@@ -188,8 +226,7 @@ class Picker(Gtk.Layout):
 
     def _remove_focus(self, widget, item, button, handler_id):
         # item is the newly focussed item, so it can't be used to find button
-        button.get_style_context().remove_class('active')
-        button.get_style_context().add_class('inactive')
+        button.emit('focus-out')
 
         # len(handler_id) should only ever be exactly 1, I'm expanding it here to get an exception if that's not the case
         self.disconnect(*handler_id)
@@ -229,6 +266,25 @@ class ChannelPicker(Gtk.Stack):
             # FIXME: There must be a better way to do this
             picker.connect('focus-change', lambda _, i: self.emit('focus-change', i))
             picker.connect('selected', lambda _, i: self.emit('selected', i))
+
+    def do_focus_change(self, item):
+        for st in self.get_children():
+            st.get_style_context().remove_class('active')
+        self.get_visible_child().get_style_context().remove_class('inactive')
+        self.get_visible_child().get_style_context().add_class('active')
+
+        # FIXME: This handler_id thing is a horrible hack
+        # Since lists are immutable, I'm able to abuse the shit out of it to get the result of self.connect into it's own arguments
+        handler_id = []
+        handler_id.append(self.connect('focus-change', self._remove_focus, self.get_visible_child(), handler_id))
+
+    def _remove_focus(self, widget, item, picker, handler_id):
+        # item is the newly focussed item, so it can't be used to find button
+        picker.get_style_context().remove_class('active')
+        picker.get_style_context().add_class('inactive')
+
+        # len(handler_id) should only ever be exactly 1, I'm expanding it here to get an exception if that's not the case
+        self.disconnect(*handler_id)
 
     def next(self, *args):
         self.get_visible_child().next()
