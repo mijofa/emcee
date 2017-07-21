@@ -1,3 +1,8 @@
+# vlc.py is manually downloaded from
+# https://www.olivieraubert.net/vlc/python-ctypes/
+vlc.py
+
+## Generic stuff from Github's default
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
