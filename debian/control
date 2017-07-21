@@ -1,0 +1,15 @@
+Source: emcee
+Section: video
+Priority: optional
+Maintainer: Mike Abrahall <mike-deb@cyber.com.au>
+Build-Depends: debhelper (>=10)
+Standards-Version: 3.9.8
+#Homepage: <insert the upstream URL, if relevant>
+#Vcs-Git: git://anonscm.debian.org/collab-maint/emcee.git
+#Vcs-Browser: https://anonscm.debian.org/cgit/collab-maint/emcee.git
+
+Package: emcee
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: <insert up to 60 chars description>
+ <insert long description, indented with spaces>
