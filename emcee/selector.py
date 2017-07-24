@@ -37,7 +37,7 @@ class ImageOrLabelButton(Gtk.Button):
         if icon:
             image = Gtk.Image.new_from_file(icon)
             self.pixbuf_copy = image.get_pixbuf().copy()
-            self.pixbuf_copy.saturate_and_pixelate(image.get_pixbuf(), 0, False)
+            self.pixbuf_copy.saturate_and_pixelate(image.get_pixbuf(), 0.2, False)
             self.set_image(image)
             self.set_always_show_image(True)
         else:
@@ -60,6 +60,9 @@ class ImageOrLabelButton(Gtk.Button):
         self.get_style_context().add_class('active')
         if self.pixbuf_copy and not self.saturated:
             logger.debug("Focus in while button is not saturated, saturating %s", self.title)
+            # I probably don't need to use saturate_and_pixelate() here I just need to copy the old pixbuf into the current one.
+            # For the sake of constiency however (and not bothering to find an alternative) I thought it least confusing to use
+            # the same function for both.
             self.pixbuf_copy.saturate_and_pixelate(self.get_image().get_pixbuf(), 1, False)
             self.saturated = True
 
@@ -68,7 +71,7 @@ class ImageOrLabelButton(Gtk.Button):
         self.get_style_context().add_class('inactive')
         if self.pixbuf_copy and self.saturated:
             logger.debug("Focus out while button is saturated, desaturating %s", self.title)
-            self.pixbuf_copy.saturate_and_pixelate(self.get_image().get_pixbuf(), 0, False)
+            self.pixbuf_copy.saturate_and_pixelate(self.get_image().get_pixbuf(), 0.2, False)
             self.saturated = False
 
 

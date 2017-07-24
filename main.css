@@ -9,7 +9,8 @@ GtkWindow,  /* Jessie */
 window      /* Stretch */
 {
     background-color: #729fcf;
-    background-image: url("/home/mike/Downloads/Bubbles-wallpaper.svg");
+/*    background-image: url("/home/mike/Downloads/Bubbles-wallpaper.svg"); */
+    background: linear-gradient(to top left, #729fcf, #204a87);
     background-size: cover;
     background-position: bottom right;
     color: white;
@@ -41,9 +42,6 @@ frame      /* Stretch */
     color: white;
 }
 /* FIXME: Is there a "big" font option? Is it big enough for a 10-foot UI? */
-#title {
-    font-size: 4em;
-}
 #osd {
     font-size: 2em;
 }
@@ -58,6 +56,9 @@ frame      /* Stretch */
 #station-name, #epg {
     padding: 40px 0 0 40px;
     font-size: 2em;
+}
+#station-name {
+    font-size: 4em;
 }
 
 .button,  /* Jessie */
@@ -84,7 +85,7 @@ button.inactive    /* Stretch */
      * I think this can be done with a background image, but not worth the effort
      */
     opacity: 0.4;
-    color: grey;
+    color: grey;  /* Remove colour from the text string to match the desaturation of the icon images.
 }
 .button.inactive:hover,  /* Jessie */
 button.inactive:hover    /* Stretch */
@@ -110,11 +111,12 @@ button.active:hover    /* Stretch */
 }
 
 #ChannelPicker {
-    background: linear-gradient(to bottom,transparent,lightblue 50%,transparent);
+    /* FIXME: The ChannelPicker widget doesn't stretch to fill the window, so this looks ugly */
+    background: linear-gradient(to bottom,transparent,#729fcf 50%,transparent);
 }
-#StationPicker {
+#StationPicker GtkBox {
     /* FIXME: This doesn't work on a Gtk.Layout widget, figure that out */
-    background: linear-gradient(to right,transparent,lightblue 50%,transparent);
+    background: linear-gradient(to right,transparent,#729fcf 50%,transparent);
 }
 
 #StationPicker * .button.active,  /* Jessie */
