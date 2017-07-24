@@ -21,37 +21,6 @@ OUTER_MARGIN = 10
 
 ## FIXME: Either make the OSD variable size based on the window size, or set the minimum app window size to the size of the OSD.
 
-# FIXME: Move this stylesheet out into a CSS file and import that as a theme in the application
-style_provider = Gtk.CssProvider()
-css = b"""
-    #osd {
-        padding: 2px;
-        border-radius: 10px;
-        box-shadow: 0 0 15px #333 inset;
-
-        background-color: grey;
-        color: white;
-    }
-    /* FIXME: Is there a "big" font option? Is it big enough for a 10-foot UI? */
-    #osd #title {
-        font-size: 2em;
-    }
-    #osd #status, #osd #clock {
-        font-size: 2em;
-    }
-
-    #osd #clock {
-        /* I want to keep the clock from detracting focus away from the other (more important) text */
-        opacity: 0.65;  /* FIXME: Magic number, fairly arbitrary, it looks nice. */
-    }
-"""
-style_provider.load_from_data(css)
-Gtk.StyleContext.add_provider_for_screen(
-    screen=Gdk.Screen.get_default(),
-    provider=style_provider,
-    priority=Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
-)
-
 
 class OSD(Gtk.Frame):
     _hide_timer = None

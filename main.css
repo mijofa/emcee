@@ -1,0 +1,137 @@
+/* MAIN */
+@keyframes loading {
+    0% { background-color: #204a87; }
+    34% { background-color: #3465a4; }
+    67% { background-color: #729fcf; }
+    100% { background-color: #204a87; }
+}
+GtkWindow,  /* Jessie */
+window      /* Stretch */
+{
+    background-color: #729fcf;
+    background-image: url("/home/mike/Downloads/Bubbles-wallpaper.svg");
+    background-size: cover;
+    background-position: bottom right;
+    color: white;
+}
+/*
+ * GtkWindow.loading,  \/\* Jessie \*\/
+ * window.loading      \/\* Stretch \*\/
+ * {
+ *     background-color: green;
+ *     background-image: none;
+ *     animation: loading infinite linear 3s;
+ * }
+ */
+
+GtkFrame,  /* Jessie */
+frame      /* Stretch */
+{
+    /* FIXME: The window background is showing in the overlay, give it it's own white background */
+}
+
+
+/* OSD */
+#osd {
+    padding: 2px;
+    border-radius: 10px;
+    box-shadow: 0 0 15px #333 inset;
+
+    background-color: grey;
+    color: white;
+}
+/* FIXME: Is there a "big" font option? Is it big enough for a 10-foot UI? */
+#title {
+    font-size: 4em;
+}
+#osd {
+    font-size: 2em;
+}
+
+#osd #clock {
+    /* I want to keep the clock from detracting focus away from the other (more important) text */
+    opacity: 0.65;  /* FIXME: Magic number, fairly arbitrary, it looks nice. */
+}
+
+
+/* Selector */
+#station-name, #epg {
+    padding: 40px 0 0 40px;
+    font-size: 2em;
+}
+
+.button,  /* Jessie */
+button    /* Stretch */
+{
+    font-size: 90px;  /* FIXME: Magic number based on the icon size */
+    border-radius: 99999px;  /* FIXME: This is a stupid number to put here */
+    color: green;
+
+    /* Remove the button style entirely and just display the image */
+    box-shadow: none;
+    border-style: none;
+    /* GtkButton by default has a background-image.
+     *  That must be removed before we can change the background-color
+     */
+    background-image: none;
+    transition: 1s ease-in-out;
+}
+
+.button.inactive,  /* Jessie */
+button.inactive    /* Stretch */
+{
+    /* I wanted to make inactive icons smaller, but CSS can't be used to change the size of objects.
+     * I think this can be done with a background image, but not worth the effort
+     */
+    opacity: 0.4;
+    color: grey;
+}
+.button.inactive:hover,  /* Jessie */
+button.inactive:hover    /* Stretch */
+{
+    /* Only highlight the .active one, because the ? buttons don't highlight
+     * and it's less noticable on .active than on .inactive */
+    opacity: 0.6;
+}
+.button.active:hover,  /* Jessie */
+button.active:hover    /* Stretch */
+{
+    /* I know this is deprecated in favour of "gtk-icon-effect",
+     * but I want it to work on both Jessie & Stretch */
+    -gtk-image-effect: highlight;
+/*    -gtk-image-effect: highlight/dim/none; */
+}
+#ChannelPicker #Picker {
+    opacity: 0;
+    transition: 1s ease-in-out;
+}
+#ChannelPicker #Picker.active{
+    opacity: 1;
+}
+
+#ChannelPicker {
+    background: linear-gradient(to bottom,transparent,lightblue 50%,transparent);
+}
+#StationPicker {
+    /* FIXME: This doesn't work on a Gtk.Layout widget, figure that out */
+    background: linear-gradient(to right,transparent,lightblue 50%,transparent);
+}
+
+#StationPicker * .button.active,  /* Jessie */
+#StationPicker * button.active    /* Stretch */
+{
+    /* This button is directly behind the active ChannelPicker, make it invisible */
+    opacity: 0;
+}
+
+/*
+ * GtkImage,  \/\* Jessie \*\/
+ * image      \/\* Stretch \*\/
+ * {
+ *     box-shadow: none;
+ *     border-style: none;
+ *     border-image: none;
+ *     background-image: none;
+ *     background-color: transparent;
+ * }
+ */

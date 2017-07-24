@@ -202,43 +202,11 @@ class Main(Gtk.Window):
 
 if __name__ == '__main__':
     style_provider = Gtk.CssProvider()
-    css = b"""
-        @keyframes loading {
-            0% { background-color: #204a87; }
-            34% { background-color: #3465a4; }
-            67% { background-color: #729fcf; }
-            100% { background-color: #204a87; }
-        }
-        GtkWindow,  /* Jessie */
-        window      /* Stretch */
-        {
-            background-color: #729fcf;
-            background-image: url("/usr/share/images/desktop-base/spacefun-wallpaper.svg");
-            background-size: cover;
-            background-position: bottom right;
-            color: white;
-        }
-        GtkFrame,  /* Jessie */
-        frame      /* Stretch */
-        {
-            /* FIXME: The window background is showing in the overlay, give it it's own white background */
-        }
-    """
-#        /*
-#         * GtkWindow.loading,  /* Jessie */
-#         * window.loading      /* Stretch */
-#         * {
-#         *     background-color: green;
-#         *     background-image: none;
-#         *     animation: loading infinite linear 3s;
-#         * }
-#         */
-
-    style_provider.load_from_data(css)
+    style_provider.load_from_path("main.css")
     Gtk.StyleContext.add_provider_for_screen(
-        Gdk.Screen.get_default(),
-        style_provider,
-        Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+        screen=Gdk.Screen.get_default(),
+        provider=style_provider,
+        priority=Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
     )
 
     win = Main(title='Emcee')

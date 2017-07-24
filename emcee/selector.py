@@ -22,86 +22,6 @@ Currently playing:
 Next ({channel.epg_brief.next_starttime}):
   {channel.epg_brief.next}"""
 
-# FIXME: Move this stylesheet out into a CSS file and import that as a theme in the application
-style_provider = Gtk.CssProvider()
-css = b"""
-#station-name, #epg {
-    padding: 40px 0 0 40px;
-    font-size: 2em;
-}
-
-.button,  /* Jessie */
-button    /* Stretch */
-{
-    font-size: 90px;  /* FIXME: Magic number based on the icon size */
-    border-radius: 99999px;  /* FIXME: This is a stupid number to put here */
-    color: green;
-
-    /* Remove the button style entirely and just display the image */
-    box-shadow: none;
-    border-style: none;
-    /* GtkButton by default has a background-image.
-     *  That must be removed before we can change the background-color
-     */
-    background-image: none;
-    transition: 1s ease-in-out;
-}
-
-.button.inactive,  /* Jessie */
-button.inactive    /* Stretch */
-{
-    /* I wanted to make inactive icons smaller, but CSS can't be used to change the size of objects.
-     * I think this can be done with a background image, but not worth the effort
-     */
-    opacity: 0.4;
-    color: grey;
-}
-.button.inactive:hover,  /* Jessie */
-button.inactive:hover    /* Stretch */
-{
-    /* Only highlight the .active one, because the ? buttons don't highlight
-     * and it's less noticable on .active than on .inactive */
-    opacity: 0.6;
-}
-.button.active:hover,  /* Jessie */
-button.active:hover    /* Stretch */
-{
-    /* I know this is deprecated, but I want it to work on Jessie & Stretch */
-    -gtk-image-effect: highlight;
-/*    -gtk-image-effect: highlight/dim/none; */
-}
-#ChannelPicker #Picker {
-    opacity: 0;
-    transition: 1s ease-in-out;
-}
-#ChannelPicker #Picker.active{
-    opacity: 1;
-}
-#StationPicker * .button.active,  /* Jessie */
-#StationPicker * button.active    /* Stretch */
-{
-    /* This button is directly behind the active ChannelPicker, make it invisible */
-    opacity: 0;
-}
-"""
-#/*
-# * GtkImage,  /* Jessie */
-# * image      /* Stretch */
-# * {
-# *     box-shadow: none;
-# *     border-style: none;
-# *     border-image: none;
-# *     background-image: none;
-# *     background-color: transparent;
-# * }
-# */
-style_provider.load_from_data(css)
-Gtk.StyleContext.add_provider_for_screen(
-    screen=Gdk.Screen.get_default(),
-    provider=style_provider,
-    priority=Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
-)
-
 
 class ImageOrLabelButton(Gtk.Button):
     __gsignals__ = {
@@ -138,9 +58,8 @@ class ImageOrLabelButton(Gtk.Button):
     def do_focus_in(self):
         self.get_style_context().remove_class('inactive')
         self.get_style_context().add_class('active')
-        print("Focus in", self.title, self.saturated)
         if self.pixbuf_copy and not self.saturated:
-            print("Not saturated, saturating", self.title)
+            logger.debug("Focus in while button is not saturated, saturating %s", self.title)
             self.pixbuf_copy.saturate_and_pixelate(self.get_image().get_pixbuf(), 1, False)
             self.saturated = True
 
@@ -148,7 +67,7 @@ class ImageOrLabelButton(Gtk.Button):
         self.get_style_context().remove_class('active')
         self.get_style_context().add_class('inactive')
         if self.pixbuf_copy and self.saturated:
-            print("Saturated, desaturating", self.title)
+            logger.debug("Focus out while button is saturated, desaturating %s", self.title)
             self.pixbuf_copy.saturate_and_pixelate(self.get_image().get_pixbuf(), 0, False)
             self.saturated = False
 
@@ -323,7 +242,7 @@ class StreamSelector(Gtk.Overlay):
         ## Station scroller
         self.station_picker = StationPicker(stations, margin_left=OFFSET_LEFT)
         under_box.pack_start(self.station_picker, expand=False, fill=False, padding=0)
-        # Without setting a size_request, the info_box will until this is 1px wide.
+        # Without setting a size_request, the info_box will until grow this is 1px wide.
         self.station_picker.set_size_request(BUTTON_WIDTH, -1)
 
         ## Channel scroller
@@ -334,9 +253,10 @@ class StreamSelector(Gtk.Overlay):
             valign=Gtk.Align.START,
         )
         self.add_overlay(self.channel_picker)
-        # If I don't set the size_request here it will default to 1x1px
+        # If I don't set the size_request here it will default to 1x1px because overlay's are weird with size allocation defaults
         self.channel_picker.set_size_request(
             # FIXME: I should be able to tell it to figure this out on it's own, but -1 just goes for 1x1px
+            # FIXME: This should be something more like max(picker_size, window_size)
             OFFSET_LEFT + max([len(s.channels) for s in stations]) * BUTTON_WIDTH,
             BUTTON_HEIGHT)
 
@@ -358,7 +278,6 @@ class StreamSelector(Gtk.Overlay):
         info_box.pack_start(self.station_label, expand=False, fill=False, padding=0)
 
         ## EPG info to go below the channel scroller
-        # Spacer to keep below the channel scroller
         epg_spacer = Gtk.DrawingArea()
         epg_spacer.set_size_request(-1, BUTTON_HEIGHT)
         info_box.pack_start(epg_spacer, expand=False, fill=False, padding=0)
@@ -370,6 +289,8 @@ class StreamSelector(Gtk.Overlay):
         )
         self.epg_label.set_ellipsize(Pango.EllipsizeMode.END)
         self.epg_label.set_line_wrap(True)  # Has no effect with ellipsize set unless set_lines is called
+        # FIXME: With line wrapping enabled the minimum window size changes with different menu items.
+        #        I suspect this might get worse as we put real EPG data in
         self.epg_label.set_lines(2)  # This is how many lines it's allowed to *wrap*, it does not affect how many \n I can use
         # NOTE: With the wrapping set up like this, it's possible the channel name or the now/next strings will wrap and look bad.
         # FIXME: Should we use separate labels here so as to get different wrapping behaviour for each?

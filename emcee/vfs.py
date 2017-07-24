@@ -54,7 +54,7 @@ data = {'ABC': ['ABC',
 class VirtualFilesystem():
     def list_stations(self):
         stations = []
-        for station_title in data:
+        for station_title in sorted(data):
 
             station_channels = []
             for channel_title in data.get(station_title):
