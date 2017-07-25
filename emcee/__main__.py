@@ -208,6 +208,26 @@ if __name__ == '__main__':
         provider=style_provider,
         priority=Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
     )
+    # #gtk+ on irc.gnome.org
+    # 15:34 < mijofa> Can anyone point me at what version number of Gtk included radial-gradient in the CSS? (as opposed to
+    #                 -gtk-gradient(radial, which doesn't give me the same control I need)
+    # 15:46 < hergertme> mijofa, based on a quick look through the git log, i'd expect 3.20
+    if Gtk.MAJOR_VERSION >= 3 and Gtk.MINOR_VERSION >= 20 and Gtk.MICRO_VERSION >= 0:
+        # Radial-gradient doesn't work in Debian Jessie's version of Gtk3
+        # FIXME: This is quick-and-dirty, create a separate stretch.css that includes main.css
+        stretch_style_provider = Gtk.CssProvider()
+        stretch_style_provider.load_from_path("main.css")
+        stretch_style_provider.load_from_data(b"""window { background:
+            radial-gradient(farthest-corner at 165px 165px,
+                            @TangoAluminium3,
+                            @TangoSkyBlue1 90px,
+                            @TangoSkyBlue3 150px,
+                            @TangoPlum3)}""")
+        Gtk.StyleContext.add_provider_for_screen(
+            screen=Gdk.Screen.get_default(),
+            provider=stretch_style_provider,
+            priority=Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+        )
 
     win = Main(title='Emcee')
     win.show()

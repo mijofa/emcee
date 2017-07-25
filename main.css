@@ -37,17 +37,7 @@
 GtkWindow,  /* Jessie */
 window      /* Stretch */
 {
-/*    background-color: @TangoSkyBlue1; */
-/*    background-image: url("/home/mike/Downloads/Bubbles-wallpaper.svg"); */
-/*    background: linear-gradient(to top left, @TangoSkyBlue1, @TangoSkyBlue3 50%); */
-    /* 165px is a magic number that matches up to the very center of main button */
-    background: radial-gradient(farthest-corner at 165px 165px, @TangoAluminium3, @TangoSkyBlue1 90px, @TangoSkyBlue3 150px, @TangoPlum3);
-/*    background-image: -gtk-gradient(radial,
-        center center, 0,
-        center center, 1,
-        from(@yellow), to(@green)); */
-    background-size: cover;
-    background-position: bottom right;
+    background: linear-gradient(to bottom right, @TangoSkyBlue1, @TangoSkyBlue3 40%, @TangoSkyBlue3 60%, @TangoPlum3);
     color: white;
 }
 /*
