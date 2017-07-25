@@ -199,10 +199,13 @@ class ChannelPicker(Gtk.Stack):
         handler_id.append(self.connect('focus-change', self._remove_focus, self.get_visible_child(), handler_id))
 
     def _remove_focus(self, widget, item, picker, handler_id):
-        # item is the newly focussed item, so it can't be used to find button
+        # item is the newly focussed item, so it can't be used to find picker, which is the previously focussed item
         picker.get_style_context().remove_class('active')
         picker.get_style_context().add_class('inactive')
 
+        # Connecting to a event is a permanent thing, there's no way to *just* the next *one* time that event happens.
+        # As such this function disconnects itself from the event at the end of its run.
+        #
         # len(handler_id) should only ever be exactly 1, I'm expanding it here to get an exception if that's not the case
         self.disconnect(*handler_id)
 

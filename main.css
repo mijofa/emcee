@@ -1,4 +1,5 @@
 /* Tango color pallete */
+/* FIXME: Can this be put in a separate file? */
 @define-color TangoButter1 #fce94f;
 @define-color TangoButter2 #edd400;
 @define-color TangoButter3 #c4a000;
@@ -50,16 +51,15 @@ window      /* Stretch */
  * }
  */
 
-GtkFrame,  /* Jessie */
-frame      /* Stretch */
-{
-    /* FIXME: The window background is showing in the overlay, give it it's own white background */
-}
-
 
 /* OSD */
-#osd {
-    padding: 2px;
+#osdFrame
+{
+    /* FIXME: The window background is showing in the osd overlay, give it it's own white background */
+    border: none;
+}
+
+#osdBox {
     border-radius: 10px;
     box-shadow: 0 0 15px #333 inset;
 
@@ -67,7 +67,7 @@ frame      /* Stretch */
     color: white;
 }
 /* FIXME: Is there a "big" font option? Is it big enough for a 10-foot UI? */
-#osd {
+#osdBox {
     font-size: 2em;
 }
 

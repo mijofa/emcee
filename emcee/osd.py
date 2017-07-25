@@ -29,7 +29,7 @@ class OSD(Gtk.Frame):
         logger.debug('Setting up OSD')
         super().__init__(
             margin=OUTER_MARGIN,  # Keep it slightly away from the edge
-            name="osd",  # Used for CSS styling
+            name="osdFrame",  # Used for CSS styling
             border_width=2,
             # Anchor it to the top-left
             # FIXME: Doesn't work in top-right. If the label strings get long the entire OSD moves away from the right edge.
@@ -74,6 +74,7 @@ class OSD(Gtk.Frame):
         GObject.idle_add(self._update_time, priority=GLib.PRIORITY_LOW)
 
         vbox = Gtk.VBox()
+        vbox.set_name("osdBox")
         self.add(vbox)
         vbox.pack_start(title, expand=True, fill=True, padding=0)
         status_line = Gtk.HBox()
