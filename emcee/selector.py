@@ -13,14 +13,12 @@ logger = logging.getLogger(__name__)
 # but the Button has it's own border that it puts around the icons that needs to be accounted for.
 BUTTON_WIDTH = 150  # FIXME: This is based on the current size of the channel gifs
 BUTTON_HEIGHT = 150  # FIXME: This is based on the current size of the channel gifs
-OFFSET_UPPER = BUTTON_HEIGHT * 0.75
-OFFSET_LEFT = BUTTON_WIDTH * 0.75
+OFFSET_UPPER = BUTTON_HEIGHT * 0.6
+OFFSET_LEFT = BUTTON_WIDTH * 0.6
 
 EPG_TEMPLATE = """{channel.title}
-Currently playing:
-  {channel.epg_brief.now}
-Next ({channel.epg_brief.next_starttime}):
-  {channel.epg_brief.next}"""
+NOW:  {channel.epg_brief.now}
+NEXT:  {channel.epg_brief.next}"""
 
 
 class ImageOrLabelButton(Gtk.Button):
@@ -236,6 +234,7 @@ class StreamSelector(Gtk.Overlay):
 
     def __init__(self):
         super().__init__()
+        self.set_name("selector")
         vfs = emcee.vfs.VirtualFilesystem()
         stations = vfs.list_stations()
 
@@ -267,22 +266,35 @@ class StreamSelector(Gtk.Overlay):
         info_box = Gtk.VBox()
         under_box.pack_start(info_box, expand=True, fill=True, padding=0)
 
-        ## Station label to sit above the channel scroller
+        ## Station label and current clock time to sit above the channel scroller
+        upper_info = Gtk.HBox()
+        upper_info.set_size_request(-1, OFFSET_UPPER)
+        info_box.pack_start(upper_info, expand=False, fill=False, padding=0)
         self.station_label = Gtk.Label(
             name="station-name",
-            halign=Gtk.Align.START,
-            valign=Gtk.Align.START,
-            justify=Gtk.Justification.LEFT,
+            halign=Gtk.Align.CENTER,
+            valign=Gtk.Align.CENTER,
+            justify=Gtk.Justification.CENTER,
         )
-        self.station_label.set_size_request(-1, OFFSET_UPPER)
-        self.station_label.set_line_wrap(False)
         self.station_label.set_ellipsize(Pango.EllipsizeMode.END)
         self.station_label.set_text("Station title")
-        info_box.pack_start(self.station_label, expand=False, fill=False, padding=0)
+
+        upper_info.pack_start(self.station_label, expand=True, fill=True, padding=0)
+        self.clock = Gtk.Label(
+            name="clock",
+            halign=Gtk.Align.END,
+            valign=Gtk.Align.START,
+            justify=Gtk.Justification.RIGHT,
+        )
+        # FIXME: Actually update this every minute
+        # FIXME: Make this format and the OSD clock format match.
+        self.clock.set_text('12:34PM')
+        upper_info.pack_start(self.clock, expand=False, fill=False, padding=0)
 
         ## EPG info to go below the channel scroller
         epg_spacer = Gtk.DrawingArea()
         epg_spacer.set_size_request(-1, BUTTON_HEIGHT)
+
         info_box.pack_start(epg_spacer, expand=False, fill=False, padding=0)
         self.epg_label = Gtk.Label(
             name="epg",
@@ -291,10 +303,11 @@ class StreamSelector(Gtk.Overlay):
             justify=Gtk.Justification.LEFT,
         )
         self.epg_label.set_ellipsize(Pango.EllipsizeMode.END)
-        self.epg_label.set_line_wrap(True)  # Has no effect with ellipsize set unless set_lines is called
         # FIXME: With line wrapping enabled the minimum window size changes with different menu items.
         #        I suspect this might get worse as we put real EPG data in
-        self.epg_label.set_lines(2)  # This is how many lines it's allowed to *wrap*, it does not affect how many \n I can use
+        # UPDATE: I think what's going on is despite the ellipsizing, the Label is still growing to its full wrapped size
+#        self.epg_label.set_line_wrap(True)  # Has no effect with ellipsize set unless set_lines is called
+#        self.epg_label.set_lines(2)  # This is how many lines it's allowed to *wrap*, it does not affect how many \n I can use
         # NOTE: With the wrapping set up like this, it's possible the channel name or the now/next strings will wrap and look bad.
         # FIXME: Should we use separate labels here so as to get different wrapping behaviour for each?
         #        Alternatively can we use the markup thing to do that?

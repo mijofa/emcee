@@ -188,7 +188,7 @@ class VLCWidget(Gtk.DrawingArea):
         # This function triggers when parsed state changes not just when it's parsed, so check that it is currently parsed
         if self.player.get_media().is_parsed():
             # FIXME: Doesn't recognise teletext subtitle
-            #        Perhaps I just don't have that vlc module installed?
+            #        Perhaps I just don't have that vlc module installed? vlc-plugin-zvbi
             if 0 == self.player.video_get_spu_count():
                 self.subtitles = {-1: 'No subtitles found'}
             else:

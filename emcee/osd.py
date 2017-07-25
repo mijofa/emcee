@@ -70,6 +70,7 @@ class OSD(Gtk.Frame):
         self.set_title = title.set_text
         self._set_time = clock.set_text  # Should never actually be called externally
         # Set up GLib to update the clock whenever it has a free moment
+        # FIXME: Do this less often!
         GObject.idle_add(self._update_time, priority=GLib.PRIORITY_LOW)
 
         vbox = Gtk.VBox()

@@ -3,6 +3,7 @@
 
 import os
 import collections
+import random
 
 TVDIR = '/home/mike/Videos/tv'
 
@@ -50,10 +51,15 @@ data = {'ABC': ['ABC',
                            '9Gem'],
         }
 
+with open('epgs', 'r') as f:
+    epg_samples = [l.strip() for l in f.readlines()]
+    random.shuffle(epg_samples)
+
 
 class VirtualFilesystem():
     def list_stations(self):
         stations = []
+        ind = 0
         for station_title in sorted(data):
 
             station_channels = []
@@ -68,12 +74,13 @@ class VirtualFilesystem():
                     title=channel_title,
                     icon=icon_filename,  # FIXME: Make this use a file-object or similar
                     epg_brief=EPG_brief(
-                        now="Unknown: No data available",
-                        next="Unknown 2: The return of Data Corruption",
+                        now=epg_samples[ind],
+                        next=epg_samples[ind + 1],
                         next_starttime="23:59am",
                     ),
                     uri='file:///dev/null',
                 ))
+                ind += 2
 
             if os.path.isfile('{}/{}/folder.svg'.format(TVDIR, station_title)):
                 icon_filename = '{}/{}/folder.svg'.format(TVDIR, station_title)
