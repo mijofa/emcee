@@ -1,14 +1,43 @@
+/* Tango color pallete */
+@define-color TangoButter1 #fce94f;
+@define-color TangoButter2 #edd400;
+@define-color TangoButter3 #c4a000;
+@define-color TangoOrange1 #fcaf3e;
+@define-color TangoOrange2 #f57900;
+@define-color TangoOrange3 #ce5c00;
+@define-color TangoChocolate1 #e9b96e;
+@define-color TangoChocolate2 #c17d11;
+@define-color TangoChocolate3 #8f5902;
+@define-color TangoChameleon1 #8ae234;
+@define-color TangoChameleon2 #73d216;
+@define-color TangoChameleon3 #4e9a06;
+@define-color TangoSkyBlue1 #729fcf;
+@define-color TangoSkyBlue2 #3465a4;
+@define-color TangoSkyBlue3 #204a87;
+@define-color TangoPlum1 #ad7fa8;
+@define-color TangoPlum2 #75507b;
+@define-color TangoPlum3 #5c3566;
+@define-color TangoScarletRed1 #ef2929;
+@define-color TangoScarletRed2 #cc0000;
+@define-color TangoScarletRed3 #a40000;
+@define-color TangoAluminium1 #eeeeec;
+@define-color TangoAluminium2 #d3d7cf;
+@define-color TangoAluminium3 #babdb6;
+@define-color TangoAluminium4 #888a85;
+@define-color TangoAluminium5 #555753;
+@define-color TangoAluminium6 #2e3436;
+
 /* MAIN */
 @keyframes loading {
-    0% { background-color: #204a87; }
-    34% { background-color: #3465a4; }
-    67% { background-color: #729fcf; }
-    100% { background-color: #204a87; }
+    0% { background-color: @TangoSkyBlue3; }
+    34% { background-color: @TangoSkyBlue2; }
+    67% { background-color: @TangoSkyBlue1; }
+    100% { background-color: @TangoSkyBlue3; }
 }
 GtkWindow,  /* Jessie */
 window      /* Stretch */
 {
-/*    background-color: #729fcf; */
+/*    background-color: @TangoSkyBlue1; */
 /*    background-image: url("/home/mike/Downloads/Bubbles-wallpaper.svg"); */
     background: linear-gradient(to top left, #729fcf, #204a87 50%);
 /*    background-image: -gtk-gradient(radial,
@@ -111,11 +140,11 @@ button.active:hover    /* Stretch */
 
 #ChannelPicker {
     /* FIXME: The ChannelPicker widget doesn't stretch to fill the window, so this looks ugly */
-/*    background: linear-gradient(to bottom,transparent,#729fcf 50%,transparent); */
+/*    background: linear-gradient(to bottom,transparent,@TangoSkyBlue1 50%,transparent); */
 }
 #StationPicker GtkBox {
     /* FIXME: This doesn't work on a Gtk.Layout widget, figure that out */
-/*    background: linear-gradient(to right,transparent,#729fcf 50%,transparent); */
+/*    background: linear-gradient(to right,transparent,@TangoSkyBlue1 50%,transparent); */
 }
 
 #StationPicker * .button.active,  /* Jessie */
