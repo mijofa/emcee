@@ -216,10 +216,16 @@ class ChannelPicker(Gtk.Stack):
         self.get_visible_child().prev()
 
     def change_station(self, station):
+        # Get the currently focussed station
+        old_focus = self.get_visible_child()
+
         self.set_visible_child_name(station)
         # Trigger the value_changed function to make sure current channel selections get updated
         # I could call the functon directly, but I felt it was "more right" to do it by triggering this signal
         self.get_visible_child().adjustment.emit('value-changed')
+
+        # Now that it's out of site, reset it's cursor to 0
+        old_focus.adjustment.set_value(0)
 
     def select(self):
         self.get_visible_child().select()
