@@ -28,7 +28,7 @@
 @define-color TangoAluminium5 #555753;
 @define-color TangoAluminium6 #2e3436;
 
-/* MAIN */
+/* General */
 @keyframes loading {
     0% { background-color: @TangoSkyBlue3; }
     34% { background-color: @TangoSkyBlue2; }
@@ -38,6 +38,8 @@
 GtkWindow,  /* Jessie */
 window      /* Stretch */
 {
+    /* Currently this background gets overwritten in __main__.py when running on Stretch,
+     * this is only here so it doesn't look shit on Stretch */
     background: linear-gradient(to bottom right, @TangoSkyBlue1, @TangoSkyBlue3 40%, @TangoSkyBlue3 60%, @TangoPlum3);
     color: white;
 }
@@ -51,50 +53,50 @@ window      /* Stretch */
  * }
  */
 
+/* WARNING: Don't be the idiot I was and apply font-size: 2em to "*".
+ * Changing the font size changes the size of everything else that uses em units,
+ * so everything kind just keeps growing endlessly when you do that. */
+GtkLabel {
+    /* FIXME: Is there a "big" font option? Is it big enough for a 10-foot UI?
+     *        Alternatively make everything smaller and use GDK_SCALE environment variable for the 10-foot expansion */
+    font-size: 2em;
+}
+
+#clock {
+    /* I want to keep the clock from detracting focus away from the other (more important) text */
+    opacity: 0.65;
+}
 
 /* OSD */
 #osdFrame * {
     /* FIXME: The window background is showing around the OSD overlay.
-     *        Either remove this and give it its own frame, or make it look better with black fframe. */
+     *        Either remove this and give it its own frame, or make it look better with black frame. */
+    /* FIXME: In Jessie there's a border at some other layer that's not going away with this rule */
     border-style: none;
 }
-
 #osdBox {
     border-radius: 10px;  /* Round the edges */
     background-color: @TangoAluminium4;
     color: white;
     box-shadow: 0 0 15px @TangoAluminium6 inset;  /* Fade into the unavoidable black frame */
 }
-/* FIXME: Is there a "big" font option? Is it big enough for a 10-foot UI? */
-#osdBox {
-    font-size: 2em;
-}
 
-#clock {
-    /* I want to keep the clock from detracting focus away from the other (more important) text */
-    opacity: 0.65;  /* FIXME: Magic number, fairly arbitrary, it looks nice. */
-}
 
 /* Selector */
-#station-name, #epg, #selector #clock {
-    font-size: 2em;
-}
 
 .button,  /* Jessie */
 button    /* Stretch */
 {
-    font-size: 90px;  /* FIXME: Magic number based on the icon size */
-    border-radius: 99999px;  /* FIXME: This is a stupid number to put here */
-    color: green;
+    font-size: 40px;  /* FIXME: Magic number based on the icon size. This is effectively doubled due to the 2em in GtkLabel */
+    /* Since we make the button itself invisible, we don't care about border-radius, but it might be useful for putting a frame of some sort around the icons
+     * border-radius: 50%;  */
+    color: @TangoPlum2;
 
     /* Remove the button style entirely and just display the image */
     box-shadow: none;
     border-style: none;
-    /* GtkButton by default has a background-image.
-     *  That must be removed before we can change the background-color
-     */
+    /* GtkButton unintuitively has a background-image instead of background-color */
     background-image: none;
-    transition: 1s ease-in-out;
 }
 
 .button.inactive,  /* Jessie */
@@ -102,6 +104,8 @@ button.inactive    /* Stretch */
 {
     /* I wanted to make inactive icons smaller, but CSS can't be used to change the size of objects.
      * I think this can be done with a background image, but not worth the effort
+     * The real purpose was to de-emphasize inactive items, we can do that by making it slightly opaque and stripping the colour
+     * NOTE: Colour is stripped from the images in selector.py:ImageOrLabelButton.do_focus_out()
      */
     opacity: 0.4;
     color: grey;  /* Remove colour from the text string to match the desaturation of the icon images. */
@@ -109,33 +113,26 @@ button.inactive    /* Stretch */
 .button.inactive:hover,  /* Jessie */
 button.inactive:hover    /* Stretch */
 {
-    /* Only highlight the .active one, because the ? buttons don't highlight
-     * and it's less noticable on .active than on .inactive */
+    /* Without fully emphasizing the hovered item, we should de-emphasize it less */
     opacity: 0.6;
 }
 .button.active:hover,  /* Jessie */
 button.active:hover    /* Stretch */
 {
-    /* I know this is deprecated in favour of "gtk-icon-effect",
-     * but I want it to work on both Jessie & Stretch */
+    /* I know this is deprecated in favour of "gtk-icon-effect", but I want it to work on both Jessie & Stretch. */
     -gtk-image-effect: highlight;
 /*    -gtk-image-effect: highlight/dim/none; */
 }
+
 #ChannelPicker #Picker {
+    /* Despite inactive Pickers never being valid setting the opacity to 0,
+     * and back to 1 when active, enhances the ease-in-out effect when changing stations. */
     opacity: 0;
+
     transition: 1s ease-in-out;
 }
 #ChannelPicker #Picker.active{
     opacity: 1;
-}
-
-#ChannelPicker {
-    /* FIXME: The ChannelPicker widget doesn't stretch to fill the window, so this looks ugly */
-/*    background: linear-gradient(to bottom,transparent,@TangoSkyBlue1 50%,transparent); */
-}
-#StationPicker GtkBox {
-    /* FIXME: This doesn't work on a Gtk.Layout widget, figure that out */
-/*    background: linear-gradient(to right,transparent,@TangoSkyBlue1 50%,transparent); */
 }
 
 #StationPicker * .button.active,  /* Jessie */
@@ -143,6 +140,8 @@ button.active:hover    /* Stretch */
 {
     /* This button is directly behind the active ChannelPicker, make it invisible */
     opacity: 0;
+
+    transition: 1s ease-in-out;
 }
 
 /*

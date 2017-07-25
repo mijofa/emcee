@@ -218,6 +218,8 @@ if __name__ == '__main__':
         stretch_style_provider = Gtk.CssProvider()
         stretch_style_provider.load_from_path("main.css")
         stretch_style_provider.load_from_data(b"""window { background:
+            /* FIXME: Magic number. 165px is selector.py:OFFSET_UPPER + (selector.py:BUTTON_HEIGHT / 2)
+             *        which gets a point in the center of the currently selected button */
             radial-gradient(farthest-corner at 165px 165px,
                             @TangoAluminium3,
                             @TangoSkyBlue1 90px,
