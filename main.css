@@ -53,18 +53,17 @@ window      /* Stretch */
 
 
 /* OSD */
-#osdFrame
-{
-    /* FIXME: The window background is showing in the osd overlay, give it it's own white background */
-    border: none;
+#osdFrame * {
+    /* FIXME: The window background is showing around the OSD overlay.
+     *        Either remove this and give it its own frame, or make it look better with black fframe. */
+    border-style: none;
 }
 
 #osdBox {
-    border-radius: 10px;
-    box-shadow: 0 0 15px #333 inset;
-
-    background-color: grey;
+    border-radius: 10px;  /* Round the edges */
+    background-color: @TangoAluminium4;
     color: white;
+    box-shadow: 0 0 15px @TangoAluminium6 inset;  /* Fade into the unavoidable black frame */
 }
 /* FIXME: Is there a "big" font option? Is it big enough for a 10-foot UI? */
 #osdBox {
