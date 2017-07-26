@@ -85,7 +85,7 @@ class Main(Gtk.Window):
     }
 
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+        super().__init__(title='Emcee', *args, **kwargs)
 
         self.overlay = Gtk.Overlay()
         self.add(self.overlay)
@@ -125,14 +125,24 @@ class Main(Gtk.Window):
             # Rename the window
             media_title = player.get_title()
             media_title = media_title.rpartition('.')[0]  # FIXME: Will there always be an extension?
-            self.orig_title = self.get_title()
-            self.set_title('{} - {}'.format(self.orig_title, media_title))
+            self.set_title('Emcee - {}'.format(media_title))
             # NOTE: Without using idle_add here an intermittent issue will occur with Gtk getting stuck.
             # FIXME: Not reproducing it now, but keep that in mind.
             self.osd.set_title(media_title)
-        elif state == 'Stopped':
+        elif state in ('Stopped', 'Ended'):
             # FIXME: Is there a better VLC event to hook for this?
             self.on_stop_playback(self.player)
+        elif state == 'Error':
+            # FIXME: Display an error screen, then hold all event triggers for a couple seconds
+            pass
+        elif state in ('Opening', 'Buffering'):
+            # FIXME: Need to do some extra magic to properly detect buffering, that should probably be done in player.py though.
+            #        In UPMC VLC would often say "Opening" when really it was buffering,
+            #        but there was something in the mstats that helped figure it out myself.
+            # FIXME: Set window style class to "loading" and do some sort of spinner in CSS
+            pass
+        else:
+            logger.info("Unrecognised player state: %s", state)
 
     def on_selected(self, selector, item):
         ## selector is the selector widget as given by the event, this is the same as self.selector
@@ -142,7 +152,11 @@ class Main(Gtk.Window):
         self.overlay.remove(selector)
 
         # Set up the player
-        logger.debug("self.player.load_media(%s)", item.uri)  # FIXME: Enable this when actually giving it a real uri
+        ## FIXME: Use urlparse() or something to determine if it's actually a local path vs. remote URI.
+        ##        VLC's criteria for this is stupid and deems things like "/foo/bar/Mad Max 2: Fury Road.avi" as remote
+        ##        because of the ':' in the path.
+        ##        Alternatively, just use URIs for everything, and require "file://" if it's a local path.
+        self.player.load_media(item.uri, local=False)
         # Is it worth actually running load_media when changing focus in the selector?
         # Or perhaps when the user stops changing focus for a second?
         # We can't put the playback in the background of the menu, but maybe at least start buffering without the user knowing
@@ -161,7 +175,15 @@ class Main(Gtk.Window):
         self.osd.set_title('')
 
         self.overlay.remove(player)
-        self.set_title(self.orig_title)
+        self.set_title('Emcee')
+        # FIXME: I'm sometimes getting this error right here.
+        #        I suspect the cause is Gtk not actually being as thread safe as it pretends to be
+        # > /home/mike/vcs/emcee/emcee/__main__.py:173: Warning: g_param_value_set_default: assertion 'G_IS_VALUE (value)' failed
+        # >   self.overlay.add(self.selector)
+        # > /home/mike/vcs/emcee/emcee/__main__.py:173: Warning: /build/glib2.0-y6934K/glib2.0-2.42.1/./gobject/gtype.c:4221: type id '0' is invalid  # noqa: E501
+        # >   self.overlay.add(self.selector)
+        # > /home/mike/vcs/emcee/emcee/__main__.py:173: Warning: can't peek value table for type '<invalid>' which is not currently referenced  # noqa: E501
+        # >   self.overlay.add(self.selector)
         self.overlay.add(self.selector)
 
         self.get_style_context().remove_class("loading")
@@ -230,7 +252,7 @@ if __name__ == '__main__':
             priority=Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
         )
 
-    win = Main(title='Emcee')
+    win = Main()
     win.show()
     win.connect('destroy', Gtk.main_quit)
     Gtk.main()
