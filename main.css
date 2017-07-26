@@ -35,7 +35,9 @@
     67% { background-color: @TangoSkyBlue1; }
     100% { background-color: @TangoSkyBlue3; }
 }
-GtkWindow {
+GtkWindow,  /* Jessie */
+window      /* Stretch */
+{
     /* Currently this background gets overwritten in __main__.py when running on Stretch,
      * this is only here so it doesn't look shit on Jessie */
     background: linear-gradient(to bottom right, @TangoSkyBlue1, @TangoSkyBlue3 40%, @TangoSkyBlue3 60%, @TangoPlum3);
@@ -54,7 +56,9 @@ GtkWindow {
 /* WARNING: Don't be the idiot I was and apply font-size: 2em to "*".
  * Changing the font size changes the size of everything else that uses em units,
  * so everything kind just keeps growing endlessly when you do that. */
-GtkLabel {
+GtkLabel,  /* Jessie */
+label      /* Stretch */
+{
     /* FIXME: Is there a "big" font option? Is it big enough for a 10-foot UI?
      *        Alternatively make everything smaller and use GDK_SCALE environment variable for the 10-foot expansion */
     font-size: 2em;
