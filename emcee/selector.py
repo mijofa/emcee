@@ -3,7 +3,7 @@ gi.require_version('Gtk', '3.0')
 gi.require_version('Gdk', '3.0')
 gi.require_version('GObject', '2.0')
 gi.require_version('Pango', '1.0')
-from gi.repository import Gtk, GObject, Gdk, Pango
+from gi.repository import Gtk, GObject, Gdk, Pango, GdkPixbuf
 import emcee.vfs
 import logging
 logger = logging.getLogger(__name__)
@@ -27,16 +27,24 @@ class ImageOrLabelButton(Gtk.Button):
         'focus-out': (GObject.SIGNAL_RUN_FIRST, None, ()),
     }
     saturated = False
-    pixbuf_copy = None
+    pixbuf = None
 
     def __init__(self, title, icon):
         super().__init__()
         self.title = title
         if icon:
-            image = Gtk.Image.new_from_file(icon)
-            self.pixbuf_copy = image.get_pixbuf().copy()
-            self.pixbuf_copy.saturate_and_pixelate(image.get_pixbuf(), 0.1, False)
-            self.set_image(image)
+            # Creating the pixbuf myself is the only way I could find to set a fixed image size, and preserve the aspect ratio.
+            self.pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(
+                icon,
+                # NOTE: If you want padding around the image, it will need to be calculated here.
+                #       Doing so in CSS confuses the Picker with where the buttons are.
+                # As I have done with - 25
+                width=BUTTON_WIDTH - 25,
+                height=BUTTON_HEIGHT - 25,
+                preserve_aspect_ratio=True
+            )
+            self.set_image(Gtk.Image.new_from_pixbuf(self.pixbuf.copy()))
+            self.pixbuf.saturate_and_pixelate(self.get_image().get_pixbuf(), 0.1, False)  # Desaturate the button by default.
             self.set_always_show_image(True)
         else:
             self.set_label('?')  # FIXME: Style this better.
@@ -56,20 +64,20 @@ class ImageOrLabelButton(Gtk.Button):
     def do_focus_in(self):
         self.get_style_context().remove_class('inactive')
         self.get_style_context().add_class('active')
-        if self.pixbuf_copy and not self.saturated:
+        if self.pixbuf and not self.saturated:
             logger.debug("Focus in while button is not saturated, saturating %s", self.title)
             # I probably don't need to use saturate_and_pixelate() here I just need to copy the old pixbuf into the current one.
             # For the sake of constiency however (and not bothering to find an alternative) I thought it least confusing to use
             # the same function for both.
-            self.pixbuf_copy.saturate_and_pixelate(self.get_image().get_pixbuf(), 1, False)
+            self.get_image().set_from_pixbuf(self.pixbuf.copy())
             self.saturated = True
 
     def do_focus_out(self):
         self.get_style_context().remove_class('active')
         self.get_style_context().add_class('inactive')
-        if self.pixbuf_copy and self.saturated:
+        if self.pixbuf and self.saturated:
             logger.debug("Focus out while button is saturated, desaturating %s", self.title)
-            self.pixbuf_copy.saturate_and_pixelate(self.get_image().get_pixbuf(), 0.1, False)
+            self.pixbuf.saturate_and_pixelate(self.get_image().get_pixbuf(), 0.1, False)
             self.saturated = False
 
 

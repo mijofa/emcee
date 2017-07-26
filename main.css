@@ -95,6 +95,7 @@ button    /* Stretch */
     border-style: none;
     /* GtkButton unintuitively has a background-image instead of background-color */
     background-image: none;
+    padding: 0;  /* If you want padding, go look at selector.py:ImageOrLabelButton() */
 }
 
 .button.inactive,  /* Jessie */
