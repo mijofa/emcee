@@ -187,15 +187,6 @@ class VLCWidget(Gtk.DrawingArea):
         """Handle once-off reading of media metadata"""
         # This function triggers when parsed state changes not just when it's parsed, so check that it is currently parsed
         if self.player.get_media().is_parsed():
-            # FIXME: Doesn't recognise teletext subtitle
-            #        Perhaps I just don't have that vlc module installed? vlc-plugin-zvbi
-            if 0 == self.player.video_get_spu_count():
-                self.subtitles = {-1: 'No subtitles found'}
-            else:
-                self.subtitles = dict(self.player.video_get_spu_description())
-                self.subtitles[-1] = 'Disabled'  # FIXME: Are things other than '-1' used to disable subtitles? Normalise it all?
-                # FIXME: Might need to do some ugly teletext handling stuff
-
             if 0 == self.player.audio_get_track_count():
                 self.audio_tracks = {-1: 'No audio tracks found'}
             else:
@@ -296,40 +287,61 @@ class VLCWidget(Gtk.DrawingArea):
 
     def get_current_subtitles(self):
         """Get name of current subtitles track"""
-        return self.subtitles[self.player.video_get_spu()]
+        cur_subs = self._get_subtitles()[self.player.video_get_spu()].decode()
+        if cur_subs.startswith('Teletext subtitles - [') and cur_subs.endswith(']'):
+            # VLC's identifier for teletext is so long and unnecessary
+            cur_subs = cur_subs[22:-1] + ' teletext'
+        # FIXME: UPMC had: if cur_subs == "Disable": cur_subs = "Disabled"
+        #        I think I effectively solved that problem in _get_subtitles() but I'm not sure
+        return cur_subs
 
-    def get_subtitles(self):
-        """Get name of all subtitles tracks"""
-        return list(self.subtitles.values())
+    def _get_subtitles(self):
+        # FIXME: I needed to do a lot of magic in UPMC to make Teletext work
+        #        This seems to have just worked in Emcee and I'm a little concerned there's some missed edge cases
+        if 0 == self.player.video_get_spu_count():
+            subtitles = {-1: b'No subtitles found'}
+        else:
+            subtitles = dict(self.player.video_get_spu_description())
+            subtitles[-1] = b'Disabled'  # FIXME: Are things other than '-1' used to disable subtitles? Normalise it all
+            # FIXME: Might need to do some ugly teletext handling stuff
+
+        return subtitles
 
     def do_set_subtitles(self, index):
-        """Set current subtitles track, index is based on the order from get_subtitles()"""
+        """Set current subtitles track, index is based on the order from _get_subtitles()"""
         if index == -1:
             # Just turn them off
             self.player.video_set_spu(-1)
-            return 'Disabled'
+            new_subs = 'Disabled'
 
-        if len(self.subtitles) == 1 and -1 in self.subtitles:
-            return 'No subtitles found'
-        elif len(self.subtitles) > index:
+        subtitles = self._get_subtitles()
+
+        if len(subtitles) == 1:
+            new_subs = subtitles[-1]
+        elif len(subtitles) > index:  # len() should always include -1 so don't need >=
             # VLC needs the track ID, but I just want to deal with an index from a list of just the subtitles tracks.
-            # Python3 dict.keys() doesn't support indexing, so converting it to a standard list.
-            self.player.video_set_spu(list(self.subtitles.keys())[index])
-            return self.get_current_subtitles()
+            # dict.keys() is a generator and doesn't support indexing, so converting it to a standard list.
+            self.player.video_set_spu(list(subtitles.keys())[index])
+            new_subs = self.get_current_subtitles()
         else:
-            return 'Subtitles track {} not found'.format(index)
+            new_subs = 'Subtitles track {} not found'.format(index)
+
+        logger.info("Set subtitle track %s", new_subs)
 
     def do_increment_subtitles(self, inc=1):
         """Increment through subsitles in the order they come from get_subtitles()"""
-        if len(self.subtitles) == 1 and -1 in self.subtitles:
-            return 'No subtitles found'
+
+        subtitles = self._get_subtitles()
+
+        if len(subtitles) == 1:
+            return subtitles[-1]
 
         # Find the current index and compare with the increment.
-        index = list(self.subtitles.keys()).index(self.player.video_get_spu())
+        index = list(subtitles.keys()).index(self.player.video_get_spu())
         index += inc
-        index = index % len(self.subtitles)  # In case it's above the max or below 0
+        index = index % len(subtitles)  # In case it's above the max or below 0
 
-        return self.do_set_subtitles(index)
+        return self.emit('set_subtitles', index)
 
     def get_current_audio_track(self):
         """Get name of current audio track"""

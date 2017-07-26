@@ -117,6 +117,7 @@ class Main(Gtk.Window):
         # FIXME: This also triggers when the media is first loaded, I don't want that.
         # FIXME: This is also triggering when the media stops.
         self.player.connect('volume_changed', lambda _, v: self.osd.push_status("Volume: {v:4.0%}".format(v=v)))
+        self.player.connect_after('set_subtitles', lambda _, __: self.osd.push_status("Subtitles: {}".format(self.player.get_current_subtitles())))
 
     def on_media_state(self, player, state):
         ## player is the player widget as given by the event, this is the same as self.player
@@ -156,6 +157,7 @@ class Main(Gtk.Window):
         ##        VLC's criteria for this is stupid and deems things like "/foo/bar/Mad Max 2: Fury Road.avi" as remote
         ##        because of the ':' in the path.
         ##        Alternatively, just use URIs for everything, and require "file://" if it's a local path.
+        logger.info("Loeading media %s", item.uri)
         self.player.load_media(item.uri, local=False)
         # Is it worth actually running load_media when changing focus in the selector?
         # Or perhaps when the user stops changing focus for a second?
