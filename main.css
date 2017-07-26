@@ -35,11 +35,9 @@
     67% { background-color: @TangoSkyBlue1; }
     100% { background-color: @TangoSkyBlue3; }
 }
-GtkWindow,  /* Jessie */
-window      /* Stretch */
-{
+GtkWindow {
     /* Currently this background gets overwritten in __main__.py when running on Stretch,
-     * this is only here so it doesn't look shit on Stretch */
+     * this is only here so it doesn't look shit on Jessie */
     background: linear-gradient(to bottom right, @TangoSkyBlue1, @TangoSkyBlue3 40%, @TangoSkyBlue3 60%, @TangoPlum3);
     color: white;
 }
