@@ -21,5 +21,6 @@ Depends: ${shlibs:Depends}, ${misc:Depends}, ${python3:Depends},
 # FIXME: python3-vlc not packaged as deb
 #        https://www.olivieraubert.net/vlc/python-ctypes/
  vlc
+ vlc-plugin-zvbi
 Description: <insert up to 60 chars description>
  <insert long description, indented with spaces>
