@@ -224,8 +224,10 @@ class ChannelPicker(Gtk.Stack):
         # I could call the functon directly, but I felt it was "more right" to do it by triggering this signal
         self.get_visible_child().adjustment.emit('value-changed')
 
-        # Now that it's out of site, reset it's cursor to 0
-        old_focus.adjustment.set_value(0)
+        # Now that it's out of sight, reset it's cursor to 0.
+        # If we did actually change station, this triggers as a stream stops as well, resetting to 0 at that point is surprising.
+        if not old_focus == self.get_visible_child():
+            old_focus.adjustment.set_value(0)
 
     def select(self):
         self.get_visible_child().select()
