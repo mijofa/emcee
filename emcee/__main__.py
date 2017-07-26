@@ -2,7 +2,6 @@
 # NOTE: Consider running this with the GDK_SCALE environment variable set to force all elements to be bigger,
 #       This might be an easier way to implement the 10-foot UI.
 import os
-import sys
 import logging
 import warnings
 logging_level = os.environ.get('EMCEEDEBUG')
@@ -107,7 +106,7 @@ class Main(Gtk.Window):
 
     def _init_player(self):
         self.player = emcee.player.VLCWidget()
-        self.player.load_media(sys.argv[1])  # FIXME: Early testing only, remove this!
+#        self.player.load_media(sys.argv[1])  # FIXME: Early testing only, remove this!
         self.player.show_all()
 
         # FIXME: Do we need to hook into vlc.EventType.VlmMediaInstanceStopped as well?

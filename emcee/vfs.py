@@ -2,6 +2,7 @@
 # For now however, it just returns the lists I want for testing, I'll implement the actual backing store later
 
 import os
+import sys
 import collections
 import random
 
@@ -78,7 +79,7 @@ class VirtualFilesystem():
                         next=epg_samples[ind + 1],
                         next_starttime="23:59am",
                     ),
-                    uri='file:///dev/null',
+                    uri='{}'.format(sys.argv[1]),
                 ))
                 ind += 2
 
