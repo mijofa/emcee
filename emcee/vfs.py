@@ -13,44 +13,36 @@ Channel = collections.namedtuple('Channel', 'title icon epg_brief uri')
 EPG_brief = collections.namedtuple('EPG_brief', 'now next next_starttime')
 
 # Test data.
-data = {'ABC': ['ABC',
+data = {'ABC': ['ABC News 24',
+                'ABC',
+                'ABC2 KIDS',
+                'ABC ME',
                 'ABC HD',
-                'ABC2  ABC4',
-                'ABC3',
-                'ABC News 24',
-                'ABC Jazz',
-                'Double J'],
-        'Internal': ['PPC Local 1', 'PPC Local 2'],
-        'Nine Network Australia': ['9HD',
-                                   'Nine Melbourne',
-                                   '9Life',
-                                   'EXTRA',
-                                   'GEM',
+                'Double J',
+                'ABC Jazz'],
+        'C31': ['C31'],
+        'Nine Network Australia': ['Nine Melbourne',
+                                   '9HD Melbourne',
                                    'GO!',
-                                   'WIN'],
-        'SBS': ['SBS HD',
-                'SBS ONE',
+                                   '9Life',
+                                   'Extra',
+                                   'GEM'],
+        'SBS': ['SBS ONE',
                 'SBS TWO',
                 'Food Network',
                 'NITV',
+                'SBS HD',
                 'SBS Radio 1',
                 'SBS Radio 2',
                 'SBS Radio 3'],
-        'Seven Network': ['7 Digital', '7flix', '7mate', '7TWO', 'Racing'],
-        'WIN Television': ['WIN Canberra',
-                           'WIN Canberra HD',
-                           'ELEVEN Canberra',
-                           'ONE Canberra',
-                           'TVSN',
-                           'GOLD'],
-        'Southern Cross': ['9Life',
-                           'Nine Canberra',
-                           'Aspire',
-                           '9Go!',
-                           '9HD Canberra',
-                           'YESSHOP',
-                           '9Gem'],
-        }
+        'Seven Network': ['7 Digital',
+                          '7TWO',
+                          '7mate',
+                          '7flix Melbourne',
+                          'TV4ME',
+                          'RACING.COM'],
+        'Ten Melbourne': ['TEN Digital', 'TVSN', 'ONE', 'ELEVEN', 'SpreeTV']}
+
 
 with open('epgs', 'r') as f:
     epg_samples = [l.strip() for l in f.readlines()]
@@ -83,16 +75,9 @@ class VirtualFilesystem():
                 ))
                 ind += 2
 
-            if os.path.isfile('{}/{}/folder.svg'.format(TVDIR, station_title)):
-                icon_filename = '{}/{}/folder.svg'.format(TVDIR, station_title)
-            elif os.path.isfile('{}/{}/folder.gif'.format(TVDIR, station_title)):
-                icon_filename = '{}/{}/folder.gif'.format(TVDIR, station_title)
-            else:
-                icon_filename = None
-
             stations.append(Station(
                 title=station_title,
-                icon=icon_filename,  # FIXME: Make this use a file-object or similar
+                icon=station_channels[0].icon,  # FIXME: Make this use a file-object or similar
                 channels=station_channels,
             ))
 
