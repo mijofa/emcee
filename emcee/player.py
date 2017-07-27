@@ -57,6 +57,7 @@ class VLCWidget(Gtk.DrawingArea):
         'error': (GObject.SIGNAL_ACTION, None, ()),
         'loaded': (GObject.SIGNAL_ACTION, None, ()),
         'initialised': (GObject.SIGNAL_ACTION, None, ()),
+        'meta_changed': (GObject.SIGNAL_ACTION, None, ()),
         # Signals emitted externally to trigger an action internally
         'play': (GObject.SIGNAL_RUN_FIRST, None, ()),
         'pause': (GObject.SIGNAL_RUN_FIRST, None, ()),
@@ -194,11 +195,13 @@ class VLCWidget(Gtk.DrawingArea):
                 self.audio_tracks[-1] = 'Disabled'  # FIXME: Should this "track" be removed in favour of mute/unmute
 
             # FIXME: Is there more things to process here? Multiple video tracks?
+            self.emit('meta_changed')
             self.emit('loaded')
 
     ## Querying media info ##
     def get_title(self):
         # FIXME: Is there a MetaChanged event I can attach to then have all the Meta values in a dict or something?
+        # FIXME: This doesn't actually get the stream title, only the URL
         return self.player.get_media().get_meta(vlc.Meta.Title)
 
     ## Playback control functions ##
@@ -237,6 +240,8 @@ class VLCWidget(Gtk.DrawingArea):
         media_em = media.event_manager()
         media_em.event_attach(vlc.EventType.MediaStateChanged, self._on_state_change)
         media_em.event_attach(vlc.EventType.MediaParsedChanged, self._on_parsed)
+# FIXME: Have a self.metadata dictionary that gets updated when this event triggers.
+        media_em.event_attach(vlc.EventType.MediaMetaChanged, lambda _: self.emit('meta_changed'))
 
         self.player.set_media(media)
 

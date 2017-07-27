@@ -121,19 +121,13 @@ class Main(Gtk.Window):
         self.player.connect('volume_changed', lambda _, v: self.osd.push_status("Volume: {v:4.0%}".format(v=v)))
         self.player.connect_after('set_subtitles',
                                   lambda _, __: self.osd.push_status("Subtitles: {}".format(self.player.get_current_subtitles())))
+        self.player.connect('meta_changed', lambda _: self.osd.set_title(self.player.get_title()))
 
     def on_media_state(self, player, state):
         ## player is the player widget as given by the event, this is the same as self.player
         logger.debug('State changed to %s', state)
-        if state == 'Playing':
-            # Rename the window
-            media_title = player.get_title()
-            media_title = media_title.rpartition('.')[0]  # FIXME: Will there always be an extension?
-            self.set_title('Emcee - {}'.format(media_title))
-            # NOTE: Without using idle_add here an intermittent issue will occur with Gtk getting stuck.
-            # FIXME: Not reproducing it now, but keep that in mind.
-            self.osd.set_title(media_title)
-        elif state in ('Stopped', 'Ended'):
+#        if state == 'Playing':
+        if state in ('Stopped', 'Ended'):
             # FIXME: Is there a better VLC event to hook for this?
             self.on_stop_playback(self.player)
         elif state == 'Error':
@@ -154,6 +148,11 @@ class Main(Gtk.Window):
         self.mode = "player"
         self.get_style_context().add_class("loading")
         self.overlay.remove(selector)
+
+        # NOTE: Without using idle_add here an intermittent issue will occur with Gtk getting stuck.
+        # FIXME: Not reproducing it now, but keep that in mind.
+        self.set_title('Emcee - {}'.format(item.title))
+        self.osd.set_default_status(item.title)
 
         # Set up the player
         ## FIXME: Use urlparse() or something to determine if it's actually a local path vs. remote URI.
