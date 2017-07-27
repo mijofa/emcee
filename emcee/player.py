@@ -349,7 +349,11 @@ class VLCWidget(Gtk.DrawingArea):
 
     def get_audio_tracks(self):
         """Get name of all audio tracks"""
-        logger.debug(self.audio_tracks)
+        # FIXME: Subtitles tracks in streaming media got updated as the stream
+        #        continued without any event trigger notifying me they'd changed.
+        #        Audio tracks are probably the same and need to change a lot of
+        #        it into get/set functions and stop relying on
+        #        self.audio_tracks.
         return list(self.audio_tracks.values())
 
     def do_set_audio_track(self, index):
