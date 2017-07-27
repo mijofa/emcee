@@ -39,9 +39,11 @@ import emcee.player
 keybindings = {
     'general': {
         'i': 'toggle_osd',
+        'Help': 'toggle_osd',
         'f': 'fullscreen',
         'F': 'unfullscreen',
         'Escape': 'back',
+        'Close': 'back',
     },
     'player': {
         # Volume
@@ -49,7 +51,7 @@ keybindings = {
         'Down': ('increment_volume', -0.02),
 
         # Time manipulation
-        'space': ('toggle_pause'),
+        'space': 'toggle_pause',
         'AudioPlay': 'toggle_pause',
         'Left': ('seek', -20),  # 20 seconds back
         'Right': ('seek', +30),  # 30 seconds forward
@@ -62,6 +64,7 @@ keybindings = {
         'Escape': 'stop',
 
         's': ('increment_subtitles', +1),
+        'Messenger': ('increment_subtitles', +1),
         'a': ('increment_audio_track', +1),
     },
     'selector': {
