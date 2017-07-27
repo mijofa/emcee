@@ -50,6 +50,7 @@ keybindings = {
 
         # Time manipulation
         'space': ('toggle_pause'),
+        'AudioPlay': 'toggle_pause',
         'Left': ('seek', -20),  # 20 seconds back
         'Right': ('seek', +30),  # 30 seconds forward
         'Page_Up': ('seek', -300),  # 5 minutes back
@@ -72,6 +73,7 @@ keybindings = {
         'space': 'select_channel',
         'Return': 'select_channel',
         'KP_Enter': 'select_channel',
+        'AudioPlay': 'select_channel',
     },
 }
 
@@ -117,7 +119,8 @@ class Main(Gtk.Window):
         # FIXME: This also triggers when the media is first loaded, I don't want that.
         # FIXME: This is also triggering when the media stops.
         self.player.connect('volume_changed', lambda _, v: self.osd.push_status("Volume: {v:4.0%}".format(v=v)))
-        self.player.connect_after('set_subtitles', lambda _, __: self.osd.push_status("Subtitles: {}".format(self.player.get_current_subtitles())))
+        self.player.connect_after('set_subtitles',
+                                  lambda _, __: self.osd.push_status("Subtitles: {}".format(self.player.get_current_subtitles())))
 
     def on_media_state(self, player, state):
         ## player is the player widget as given by the event, this is the same as self.player
