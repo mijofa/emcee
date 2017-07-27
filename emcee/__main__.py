@@ -85,6 +85,7 @@ class Main(Gtk.Window):
         'fullscreen': (GObject.SIGNAL_RUN_FIRST, None, ()),
         'unfullscreen': (GObject.SIGNAL_RUN_FIRST, None, ()),
     }
+    osd_updater = None
 
     def __init__(self, *args, **kwargs):
         super().__init__(title='Emcee', *args, **kwargs)
@@ -121,8 +122,6 @@ class Main(Gtk.Window):
         self.player.connect('volume_changed', lambda _, v: self.osd.push_status("Volume: {v:4.0%}".format(v=v)))
         self.player.connect_after('set_subtitles',
                                   lambda _, __: self.osd.push_status("Subtitles: {}".format(self.player.get_current_subtitles())))
-        # FIXME: I can't figure out how to get the currently playing programme from VLC.
-        #self.player.connect('meta_changed', lambda _: self.osd.set_title(self.player.get_title()))
 
     def on_media_state(self, player, state):
         ## player is the player widget as given by the event, this is the same as self.player
@@ -155,7 +154,11 @@ class Main(Gtk.Window):
         # FIXME: Without using idle_add here an intermittent issue was occuring when setting window title.
         # FIXME: Not able to reproduce it anymore, so I've left it out for now.
         self.set_title('Emcee - {}'.format(item.title))
-        self.osd.set_title(item.title)
+        self.osd.set_default_status(item.title)
+        # Update the OSD title whenever it's shown again.
+        # FIXME: Make this update whenever the title changes
+        self.osd_updater = self.osd.connect(
+            'show', lambda osd: osd.set_title(self.player.get_title()))
 
         # Set up the player
         ## FIXME: Use urlparse() or something to determine if it's actually a local path vs. remote URI.
@@ -179,6 +182,7 @@ class Main(Gtk.Window):
     def on_stop_playback(self, player):
         ## player is the player widget as given by the event, this is the same as self.player
         self.mode = 'selector'
+        self.osd.disconnect(self.osd_updater)
         self.osd.set_title('')
 
         self.overlay.remove(player)

@@ -120,6 +120,7 @@ class OSD(Gtk.Frame):
         # Remove any pre-existing hide timer before displaying the OSD.
         # This ensures that no previous timer hides the OSD before the new timeout triggers
         if self._hide_timer is not None:  # It's possible (although unlikely) that self._hide_timer will be 0
+            # FIXME: This spews out warnings when the hide_timer has already expired.
             GObject.source_remove(self._hide_timer)
             self._hide_timer = None
 

@@ -57,7 +57,6 @@ class VLCWidget(Gtk.DrawingArea):
         'error': (GObject.SIGNAL_ACTION, None, ()),
         'loaded': (GObject.SIGNAL_ACTION, None, ()),
         'initialised': (GObject.SIGNAL_ACTION, None, ()),
-        'meta_changed': (GObject.SIGNAL_ACTION, None, ()),
         # Signals emitted externally to trigger an action internally
         'play': (GObject.SIGNAL_RUN_FIRST, None, ()),
         'pause': (GObject.SIGNAL_RUN_FIRST, None, ()),
@@ -195,14 +194,20 @@ class VLCWidget(Gtk.DrawingArea):
                 self.audio_tracks[-1] = 'Disabled'  # FIXME: Should this "track" be removed in favour of mute/unmute
 
             # FIXME: Is there more things to process here? Multiple video tracks?
-            self.emit('meta_changed')
             self.emit('loaded')
 
     ## Querying media info ##
     def get_title(self):
-        # FIXME: Is there a MetaChanged event I can attach to then have all the Meta values in a dict or something?
-        # FIXME: This doesn't actually get the stream or track title, only the filename/URL
-        return self.player.get_media().get_meta(vlc.Meta.Title)
+        # FIXME: This doesn't reliably get the current track title.
+        #        NowPlaying is sometimes the current track, sometimes None.
+        #        Title is almost always the URL of the current stream.
+        media = self.player.get_media()
+        title = media.get_meta(vlc.Meta.Title)
+        if '://' in title: # FIXME: use urlparse or something
+            title = ""
+        nowplaying = media.get_meta(vlc.Meta.NowPlaying)
+        print("New title:", nowplaying, title)
+        return nowplaying or title
 
     ## Playback control functions ##
     def load_media(self, uri, local=True):
@@ -240,6 +245,9 @@ class VLCWidget(Gtk.DrawingArea):
         media_em = media.event_manager()
         media_em.event_attach(vlc.EventType.MediaStateChanged, self._on_state_change)
         media_em.event_attach(vlc.EventType.MediaParsedChanged, self._on_parsed)
+        # FIXME: Have a self.metadata dictionary that gets updated when this event triggers.
+        # FIXME: The meta keeps changing without this event being triggered!
+        #media_em.event_attach(vlc.EventType.MediaMetaChanged, lambda _: print('meta_changed'))
 
         self.player.set_media(media)
 
