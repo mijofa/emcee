@@ -201,7 +201,7 @@ class VLCWidget(Gtk.DrawingArea):
     ## Querying media info ##
     def get_title(self):
         # FIXME: Is there a MetaChanged event I can attach to then have all the Meta values in a dict or something?
-        # FIXME: This doesn't actually get the stream title, only the URL
+        # FIXME: This doesn't actually get the stream or track title, only the filename/URL
         return self.player.get_media().get_meta(vlc.Meta.Title)
 
     ## Playback control functions ##
@@ -240,8 +240,6 @@ class VLCWidget(Gtk.DrawingArea):
         media_em = media.event_manager()
         media_em.event_attach(vlc.EventType.MediaStateChanged, self._on_state_change)
         media_em.event_attach(vlc.EventType.MediaParsedChanged, self._on_parsed)
-# FIXME: Have a self.metadata dictionary that gets updated when this event triggers.
-        media_em.event_attach(vlc.EventType.MediaMetaChanged, lambda _: self.emit('meta_changed'))
 
         self.player.set_media(media)
 
