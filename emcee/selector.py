@@ -3,7 +3,9 @@ gi.require_version('Gtk', '3.0')
 gi.require_version('Gdk', '3.0')
 gi.require_version('GObject', '2.0')
 gi.require_version('Pango', '1.0')
-from gi.repository import Gtk, GObject, Gdk, Pango, GdkPixbuf
+gi.require_version('GLib', '2.0')
+from gi.repository import Gtk, GObject, Gdk, Pango, GdkPixbuf, GLib
+import time
 import emcee.vfs
 import logging
 logger = logging.getLogger(__name__)
@@ -19,6 +21,8 @@ OFFSET_LEFT = BUTTON_WIDTH * 0.6
 EPG_TEMPLATE = """{channel.title}
 NOW:  {channel.epg_brief.now}
 NEXT:  {channel.epg_brief.next}"""
+
+TIME_FORMAT = '%X'  # FIXME: Copy-pasted from osd.py
 
 
 class ImageOrLabelButton(Gtk.Button):
@@ -299,7 +303,7 @@ class StreamSelector(Gtk.Overlay):
         self.station_label.set_text("Station title")
 
         upper_info.pack_start(self.station_label, expand=True, fill=True, padding=0)
-        self.clock = Gtk.Label(
+        clock = Gtk.Label(
             name="clock",
             halign=Gtk.Align.END,
             valign=Gtk.Align.START,
@@ -307,8 +311,15 @@ class StreamSelector(Gtk.Overlay):
         )
         # FIXME: Actually update this every minute
         # FIXME: Make this format and the OSD clock format match.
-        self.clock.set_text('12:34PM')
-        upper_info.pack_start(self.clock, expand=False, fill=False, padding=0)
+        upper_info.pack_start(clock, expand=False, fill=False, padding=0)
+
+        # Set up GLib to update the clock whenever it has a free moment
+        # FIXME: Do this less often!
+        def f():
+            # Only need a function so that it can return True, otherwise GObject removes the thread.
+            clock.set_text(time.strftime(TIME_FORMAT))
+            return True
+        GObject.idle_add(f, priority=GLib.PRIORITY_LOW)
 
         ## EPG info to go below the channel scroller
         epg_spacer = Gtk.DrawingArea()
