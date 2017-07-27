@@ -232,14 +232,17 @@ class ChannelPicker(Gtk.Stack):
         old_focus = self.get_visible_child()
 
         self.set_visible_child_name(station)
+
+        # Now that it's out of sight, reset it's cursor to 0.
+        # If we did actually change station anyway, this function gets called as a stream stops as well,
+        # resetting to 0 at that point is surprising.
+        # NOTE: This must be done before emitting 'value-changed', or channel surfing will break.
+        if not old_focus == self.get_visible_child():
+            old_focus.adjustment.set_value(0)
+
         # Trigger the value_changed function to make sure current channel selections get updated
         # I could call the functon directly, but I felt it was "more right" to do it by triggering this signal
         self.get_visible_child().adjustment.emit('value-changed')
-
-        # Now that it's out of sight, reset it's cursor to 0.
-        # If we did actually change station, this triggers as a stream stops as well, resetting to 0 at that point is surprising.
-        if not old_focus == self.get_visible_child():
-            old_focus.adjustment.set_value(0)
 
     def select(self):
         self.get_visible_child().select()
@@ -259,20 +262,20 @@ class StreamSelector(Gtk.Overlay):
         super().__init__()
         self.set_name("selector")
         vfs = emcee.vfs.VirtualFilesystem()
-        stations = vfs.list_stations()
+        self.stations = vfs.list_stations()
 
         under_box = Gtk.HBox()
         self.add(under_box)
 
         ## Station scroller
-        self.station_picker = StationPicker(stations, margin_left=OFFSET_LEFT)
+        self.station_picker = StationPicker(self.stations, margin_left=OFFSET_LEFT)
         under_box.pack_start(self.station_picker, expand=False, fill=False, padding=0)
         # Without setting a size_request, the info_box will until grow this is 1px wide.
         self.station_picker.set_size_request(BUTTON_WIDTH, -1)
 
         ## Channel scroller
         self.channel_picker = ChannelPicker(
-            stations,
+            self.stations,
             margin_top=OFFSET_UPPER,
             halign=Gtk.Align.START,
             valign=Gtk.Align.START,
@@ -282,7 +285,7 @@ class StreamSelector(Gtk.Overlay):
         self.channel_picker.set_size_request(
             # FIXME: I should be able to tell it to figure this out on it's own, but -1 just goes for 1x1px
             # FIXME: This should be something more like max(picker_size, window_size)
-            OFFSET_LEFT + max([len(s.channels) for s in stations]) * BUTTON_WIDTH,
+            OFFSET_LEFT + max([len(s.channels) for s in self.stations]) * BUTTON_WIDTH,
             BUTTON_HEIGHT)
 
         ## Current selection info
@@ -358,11 +361,22 @@ class StreamSelector(Gtk.Overlay):
 
     def on_channel_change(self, widget, channel):
         # FIXME: Get the NOW/NEXT info from EPG via the VFS
+        self.selected_channel = channel
         self.epg_label.set_text(EPG_TEMPLATE.format(channel=channel))
 
     def on_station_change(self, widget, station):
+        self.selected_station = station
         self.station_label.set_text(station.title)
         self.channel_picker.change_station(station.title)
+
+    def get_all_channels(self):
+        """Returns a list of all channels in order, without any station separation.
+           This helps with channel surfing."""
+        l = []
+        for s in self.stations:
+            l += s.channels
+
+        return l
 
 
 if __name__ == '__main__':

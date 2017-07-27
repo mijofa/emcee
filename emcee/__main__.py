@@ -44,6 +44,10 @@ keybindings = {
         'F': 'unfullscreen',
         'Escape': 'back',
         'Close': 'back',
+
+        # Channel surfing while currently watching a channel
+        'Page_Down': 'surf_next',
+        'Page_Up': 'surf_prev',
     },
     'player': {
         # Volume
@@ -55,8 +59,8 @@ keybindings = {
         'AudioPlay': 'toggle_pause',
         'Left': ('seek', -20),  # 20 seconds back
         'Right': ('seek', +30),  # 30 seconds forward
-        'Page_Up': ('seek', -300),  # 5 minutes back
-        'Page_Down': ('seek', +300),  # 5 minutes forward
+        #'Page_Up': ('seek', -300),  # 5 minutes back
+        #'Page_Down': ('seek', +300),  # 5 minutes forward
         'Home': ('set_time', 0),  # Jump to beginning
         'End': ('set_time', -5),  # Jump to end (almost), mostly just for testing
 
@@ -87,6 +91,8 @@ class Main(Gtk.Window):
         'back': (GObject.SIGNAL_RUN_FIRST, None, ()),
         'fullscreen': (GObject.SIGNAL_RUN_FIRST, None, ()),
         'unfullscreen': (GObject.SIGNAL_RUN_FIRST, None, ()),
+        'surf_next': (GObject.SIGNAL_RUN_FIRST, None, ()),
+        'surf_prev': (GObject.SIGNAL_RUN_FIRST, None, ()),
     }
     osd_updater = None
 
@@ -234,6 +240,55 @@ class Main(Gtk.Window):
 
     def do_unfullscreen(self):
         self.unfullscreen()
+
+    # FIXME: Emcee hangs (not crash) when surfing quickly, some time between emitting 'stop' and emitting 'select_channel'
+    #        VLC doesn't continue playing when this happens, but I don't know if it even manages to load.
+
+    def do_surf_prev(self):
+        channels = self.selector.get_all_channels()
+        all_channels_ind = channels.index(self.selector.selected_channel)
+        new_channel = channels[all_channels_ind - 1]
+        old_station = self.selector.selected_station
+        if new_channel not in self.selector.selected_station.channels:
+            self.selector.emit('prev_station')
+            if old_station == self.selector.selected_station:
+                # We've likely hit the first station, go to the end
+                # FIXME: This is a horrible way to do this,
+                #        but my brain is frying trying to figure out how to right a "set-station" function for selector
+                for s in self.selector.stations:
+                    self.selector.emit('next-station')
+                for c in self.selector.selected_station.channels:
+                    self.selector.emit('next-channel')
+        if new_channel != self.selector.selected_channel:
+            self.selector.emit('prev_channel')
+        assert new_channel in self.selector.selected_station.channels
+        assert new_channel == self.selector.selected_channel
+        self.player.emit('stop')
+        self.selector.emit('select_channel')
+
+    def do_surf_next(self):
+        channels = self.selector.get_all_channels()
+        all_channels_ind = channels.index(self.selector.selected_channel)
+        if all_channels_ind == len(channels) - 1:
+            new_channel = channels[0]
+        else:
+            new_channel = channels[all_channels_ind + 1]
+        old_station = self.selector.selected_station
+        if new_channel not in self.selector.selected_station.channels:
+            self.selector.emit('next_station')
+            if old_station == self.selector.selected_station:
+                # We've likely hit the last station, go to the beginning
+                # FIXME: This is a horrible way to do this,
+                #        but my brain is frying trying to figure out how to right a "set-station" function for selector
+                for s in self.selector.stations:
+                    self.selector.emit('prev-station')
+        else:
+            # When incrementing station, channel incremention will automatically happen
+            self.selector.emit('next_channel')
+        assert new_channel in self.selector.selected_station.channels
+        assert new_channel == self.selector.selected_channel
+        self.player.emit('stop')
+        self.selector.emit('select_channel')
 
 if __name__ == '__main__':
     style_provider = Gtk.CssProvider()
