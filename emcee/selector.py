@@ -68,6 +68,12 @@ class ImageOrLabelButton(Gtk.Button):
     def do_focus_in(self):
         self.get_style_context().remove_class('inactive')
         self.get_style_context().add_class('active')
+
+    def do_focus_out(self):
+        self.get_style_context().remove_class('active')
+        self.get_style_context().add_class('inactive')
+
+    def resaturate(self, _):
         if self.pixbuf and not self.saturated:
             logger.debug("Focus in while button is not saturated, saturating %s", self.title)
             # I probably don't need to use saturate_and_pixelate() here I just need to copy the old pixbuf into the current one.
@@ -76,9 +82,7 @@ class ImageOrLabelButton(Gtk.Button):
             self.get_image().set_from_pixbuf(self.pixbuf.copy())
             self.saturated = True
 
-    def do_focus_out(self):
-        self.get_style_context().remove_class('active')
-        self.get_style_context().add_class('inactive')
+    def desaturate(self, _):
         if self.pixbuf and self.saturated:
             logger.debug("Focus out while button is saturated, desaturating %s", self.title)
             self.pixbuf.saturate_and_pixelate(self.get_image().get_pixbuf(), 0.1, False)
@@ -194,6 +198,9 @@ class ChannelPicker(Gtk.Stack):
 
         for station in stations:
             picker = Picker('horizontal', station.channels)
+            for b in picker.buttons:
+                b.connect('focus-out', b.desaturate)
+                b.connect('focus-in', b.resaturate)
             self.add_named(picker, station.title)
             # FIXME: There must be a better way to do this
             picker.connect('focus-change', lambda _, i: self.emit('focus-change', i))

@@ -128,11 +128,11 @@ button.active:hover    /* Stretch */
 }
 
 #ChannelPicker #Picker {
-    /* Despite inactive Pickers never being valid setting the opacity to 0,
-     * and back to 1 when active, enhances the ease-in-out effect when changing stations. */
+    /* Despite inactive Pickers never being valid setting the opacity to 0 and back to 1 when active
+     * enhances the ease-in-out effect when changing stations. */
     opacity: 0;
 
-    transition: 1s ease-in-out;
+    transition: 0.5s ease-in-out;
 }
 #ChannelPicker #Picker.active{
     opacity: 1;
@@ -144,7 +144,7 @@ button.active:hover    /* Stretch */
     /* This button is directly behind the active ChannelPicker, make it invisible */
     opacity: 0;
 
-    transition: 1s ease-in-out;
+    transition: 0.5s ease-in-out;
 }
 
 /*
