@@ -46,19 +46,25 @@ keybindings = {
         'Close': 'back',
 
         # Channel surfing while currently watching a channel
-        'Page_Down': 'surf_next',
         'Page_Up': 'surf_prev',
+        'Page_Down': 'surf_next',
+        'Left': 'surf_prev',
+        'Right': 'surf_next',
     },
     'player': {
         # Volume
         'Up': ('increment_volume', +0.02),
         'Down': ('increment_volume', -0.02),
+        #FIXME: 'm': 'mute_volume'
+        'AudioRaiseVolume': ('increment_volume', +0.02),
+        'AudioLowerVolume': ('increment_volume', -0.02),
+        #FIXME: 'AudioMute': 'mute_volume'
 
         # Time manipulation
         'space': 'toggle_pause',
         'AudioPlay': 'toggle_pause',
-        'Left': ('seek', -20),  # 20 seconds back
-        'Right': ('seek', +30),  # 30 seconds forward
+        #'Left': ('seek', -20),  # 20 seconds back
+        #'Right': ('seek', +30),  # 30 seconds forward
         #'Page_Up': ('seek', -300),  # 5 minutes back
         #'Page_Down': ('seek', +300),  # 5 minutes forward
         'Home': ('set_time', 0),  # Jump to beginning
@@ -170,7 +176,7 @@ class Main(Gtk.Window):
         self.set_title('Emcee - {}'.format(item.title))
         self.osd.set_default_status(item.title)
         # Update the OSD title whenever it's shown again.
-        # FIXME: Make this update whenever the title changes
+        # FIXME: Make this update only when the title changes
         self.osd_updater = self.osd.connect(
             'show', lambda osd: osd.set_title(self.player.get_title()))
 

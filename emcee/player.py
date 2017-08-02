@@ -225,15 +225,15 @@ class VLCWidget(Gtk.DrawingArea):
 
     ## Querying media info ##
     def get_title(self):
-        # FIXME: This doesn't reliably get the current track title.
+        # FIXME: This doesn't reliably get the current *track* title.
         #        NowPlaying is sometimes the current track, sometimes None.
         #        Title is almost always the URL of the current stream.
         media = self.player.get_media()
         title = media.get_meta(vlc.Meta.Title)
-        if '://' in title: # FIXME: use urlparse or something
+        if '://' in title:  # FIXME: use urlparse or something
+            # Filenames are acceptable, but stream URLs just look ugly.
             title = ""
         nowplaying = media.get_meta(vlc.Meta.NowPlaying)
-        print("New title:", nowplaying, title)
         return nowplaying or title
 
     ## Playback control functions ##

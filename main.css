@@ -55,10 +55,9 @@ label      /* Stretch */
 }
 
 /* OSD */
-#osdFrame * {
+#osdFrame, #osdFrame * {
     /* FIXME: The window background is showing around the OSD overlay.
      *        Either remove this and give it its own frame, or make it look better with black frame. */
-    /* FIXME: In Jessie there's a border at some other layer that's not going away with this rule */
     border-style: none;
 }
 #osdBox {
