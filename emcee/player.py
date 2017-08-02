@@ -136,6 +136,11 @@ class VLCWidget(Gtk.DrawingArea):
         self.event_manager.event_attach(vlc.EventType.MediaPlayerEndReached, self._on_state_change, 'Ended')
         self.event_manager.event_attach(vlc.EventType.MediaPlayerEncounteredError, self._on_state_change, 'Error')
 
+        ## FIXME: This was needed in UPMC to make it handle interstitial transitions correctly,
+        ##        I have not confirmed if it's still needed though.
+        # self.event_manager.event_attach(vlc.EventType.MediaPlayerVout,
+        #                                 lambda _: self.player.set_position(self.player.get_position()))
+
         # VLC has a MediaPlayerCorked (and associated uncorked) event that confused me.
         # This event is triggered by PulseAudio "corking" and muting the application's audio output,
         # which it will sometimes do if it believes a phone app or similar has started playing audio.
