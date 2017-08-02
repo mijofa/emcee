@@ -64,7 +64,11 @@ label      /* Stretch */
     border-radius: 10px;  /* Round the edges */
     background-color: @TangoAluminium4;
     color: white;
-    box-shadow: 0 0 15px @TangoAluminium6 inset;  /* Fade into the unavoidable black frame */
+    box-shadow: 0 0 15px black inset;  /* Fade into the unavoidable border of background color */
+    /* NOTE: TangoAluminium6 is not black enough to seamlessly mix with the background black */
+    /* FIXME: During video playback this background *should* be black, however in Jessie it's the selector background color.
+     *        Perhaps we should actually change the OSD colours to use more blue anyway?
+     *        The grey was really just based on the theme I used to use in MythTV */
 }
 
 
