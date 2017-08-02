@@ -37,6 +37,7 @@ GObject.threads_init()
 import vlc
 
 
+# I've tried a whole bunch of widgets other than DrawingArea, but nothing seems to allow the VLC window to sit below th OSD overlay
 class VLCWidget(Gtk.DrawingArea):
     # These are the event signals that can be triggered by this widget
     # FIXME: I suspect I'm using GTK's signals wrongly, and am supposed to use them to call things interal to the widget,
@@ -56,7 +57,6 @@ class VLCWidget(Gtk.DrawingArea):
         'media_state': (GObject.SIGNAL_ACTION, None, (str,)),
         'error': (GObject.SIGNAL_ACTION, None, ()),
         'loaded': (GObject.SIGNAL_ACTION, None, ()),
-        'initialised': (GObject.SIGNAL_ACTION, None, ()),
         # Signals emitted externally to trigger an action internally
         'play': (GObject.SIGNAL_RUN_FIRST, None, ()),
         'pause': (GObject.SIGNAL_RUN_FIRST, None, ()),
@@ -110,6 +110,7 @@ class VLCWidget(Gtk.DrawingArea):
         # Set up hooks to the VLC event manager to trigger some Python functions
         ## FIXME: Should these all be changed to emit GObject signals?
 
+        # FIXME: Use Gtk.Builder.connect_signals() to do all of this in one call?
         self.event_manager = self.player.event_manager()
         # Should really only trigger when loading new media
         self.event_manager.event_attach(vlc.EventType.MediaPlayerLengthChanged, self._on_length)
@@ -125,6 +126,22 @@ class VLCWidget(Gtk.DrawingArea):
         self.event_manager.event_attach(vlc.EventType.MediaPlayerEndReached, lambda _: self.emit('end_reached'))
         self.event_manager.event_attach(vlc.EventType.MediaPlayerEncounteredError, lambda _: self.emit('error'))
 
+        # ['Buffering', 'Ended', 'Error', 'NothingSpecial', 'Opening', 'Paused', 'Playing', 'Stopped']
+        self.event_manager.event_attach(vlc.EventType.MediaPlayerNothingSpecial, self._on_state_change, 'NothingSpecial')
+        self.event_manager.event_attach(vlc.EventType.MediaPlayerOpening, self._on_state_change, 'Opening')
+        self.event_manager.event_attach(vlc.EventType.MediaPlayerBuffering, self._on_state_change, 'Buffering')
+        self.event_manager.event_attach(vlc.EventType.MediaPlayerPlaying, self._on_state_change, 'Playing')
+        self.event_manager.event_attach(vlc.EventType.MediaPlayerPaused, self._on_state_change, 'Paused')
+        self.event_manager.event_attach(vlc.EventType.MediaPlayerStopped, self._on_state_change, 'Stopped')
+        self.event_manager.event_attach(vlc.EventType.MediaPlayerEndReached, self._on_state_change, 'Ended')
+        self.event_manager.event_attach(vlc.EventType.MediaPlayerEncounteredError, self._on_state_change, 'Error')
+
+        # VLC has a MediaPlayerCorked (and associated uncorked) event that confused me.
+        # This event is triggered by PulseAudio "corking" and muting the application's audio output,
+        # which it will sometimes do if it believes a phone app or similar has started playing audio.
+        # For now I'm ignoring this event, in future might be worth at least telling the user why the audio cut out,
+        # or perhaps automatically pausing if not watching a live stream.
+
         self.connect("destroy", self._destroy)
 
         # Some of the required initialisation doesn't actually work until the GTK widget has been realised,
@@ -135,8 +152,6 @@ class VLCWidget(Gtk.DrawingArea):
         logger.debug('VLCWidget realizing')
         win_id = widget.get_window().get_xid()
         self.player.set_xwindow(win_id)
-
-        self.emit('initialised')
 
     def _destroy(self, *args):
         logger.debug("VLCWidget Destroying")
@@ -164,24 +179,36 @@ class VLCWidget(Gtk.DrawingArea):
         self.emit('volume_changed', self.volume)
 
     def _on_time_changed(self, event):
+        if self.state == 'Buffering':
+            # The media state doesn't get updated when we finish buffering
+            # If the time/position is changing, then clearly we've finished buffering
+            self._on_state_change(None, 'Playing')
         self.time = event.u.new_time / 1000
         self.emit('time_changed', self.time)
 
     def _on_position_changed(self, event):
+        if self.state == 'Buffering':
+            # The media state doesn't get updated when we finish buffering
+            # If the time/position is changing, then clearly we've finished buffering
+            self._on_state_change(None, 'Playing')
         self.position = event.u.new_position
         self.emit('position_changed', self.position)
 
     ## Internally used functions ##
-    def _on_state_change(self, event):
-        # All possible states at time of writing --Mike June 2016
-        #
-        # ['Buffering', 'Ended', 'Error', 'NothingSpecial', 'Opening', 'Paused', 'Playing', 'Stopped']
+    def _on_state_change(self, vlc_event, state):
+        if state == 'Playing':
+            # Multicast streams don't really trigger the buffering callback very reliably.
+            # So we check if the demuxer has processed any data yet before marking it as 'Playing'
+            mstats = vlc.MediaStats()
+            self.player.get_media().get_stats(mstats)
+            if mstats.demux_read_bytes == 0:
+                state = 'Buffering'
 
-        ## Reverse VLC's enum to get the name from the value.
-        ## This is not at all intuitive, but I'm at the mercy of the VLC library here.
-        self.state = vlc.State._enum_names_[event.u.new_state]
-
+        self.state = state
         self.emit('media_state', self.state)
+
+    def do_media_state(self, state):
+        self.state = state
 
     def _on_parsed(self, event):
         """Handle once-off reading of media metadata"""
@@ -214,13 +241,6 @@ class VLCWidget(Gtk.DrawingArea):
         """Load a new media file/stream, and whatever else is involved therein"""
 
         logger.debug('VLDWidget loading media')
-        if not self.instance:
-            logger.debug('    deffered')
-            # VLC not yet initialised so can't actually load the media yet.
-            # Rerun ourselves when VLC has been initialised.
-            ## FIXME: This creates a permanent connection? That would be bad.
-            self.connect('initialised', lambda _: self._load_media(uri=uri, local=local))
-            return False
 
         ##FIXME: Handle loading of subtitles as well
         ##       If a .srt or similar is placed with the media file, load that and turn them on by default.
@@ -243,7 +263,9 @@ class VLCWidget(Gtk.DrawingArea):
             media = self.instance.media_new(uri)
 
         media_em = media.event_manager()
-        media_em.event_attach(vlc.EventType.MediaStateChanged, self._on_state_change)
+        # I now do this in the __init__
+        #media_em.event_attach(vlc.EventType.MediaStateChanged, self._on_state_change)
+        # FIXME: Move ParsedChanged into __init__?
         media_em.event_attach(vlc.EventType.MediaParsedChanged, self._on_parsed)
         # FIXME: Have a self.metadata dictionary that gets updated when this event triggers.
         # FIXME: The meta keeps changing without this event being triggered!

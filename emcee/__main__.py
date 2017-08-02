@@ -107,6 +107,12 @@ class Main(Gtk.Window):
         self.overlay.add_overlay(self.osd)
         # Not showing this yet as I want it hidden by default
 
+        # Loading spinner to show & start while opening and buffering a stream
+        # FIXME: I can't style this or set a background, wtf?
+        self.spinner = Gtk.Spinner()
+        self.overlay.add_overlay(self.spinner)
+        # Not showing this yet as I want it hidden by default
+
         self.selector = emcee.selector.StreamSelector()
         self.selector.show_all()
 
@@ -127,31 +133,30 @@ class Main(Gtk.Window):
         self.player.connect('media_state', self.on_media_state)
 
         # FIXME: This also triggers when the media is first loaded, I don't want that.
-        # FIXME: This is also triggering when the media stops.
-        self.player.connect('volume_changed', lambda _, v: self.osd.push_status("Volume: {v:4.0%}".format(v=v)))
+        #        Waiting for "Playing" status isn't good enough, seems to wait at least 0.2s
+        # FIXME: This is also triggering when the media stops, less of an issue but still want fixed
+        self.player.connect('volume_changed',
+                            lambda _, v: self.osd.push_status("Volume: {v:4.0%}".format(v=v)))
         self.player.connect_after('set_subtitles',
                                   lambda _, __: self.osd.push_status("Subtitles: {}".format(self.player.get_current_subtitles())))
 
     def on_media_state(self, player, state):
         ## player is the player widget as given by the event, this is the same as self.player
         logger.debug('State changed to %s', state)
+        if state in ('Opening', 'Buffering'):
+            self.spinner.show()
+            self.spinner.start()
+        else:
+            # Not doing state == 'Playing' here because I want it to happen even if we error before we finish buffering
+            self.spinner.stop()
+            self.spinner.hide()
+
         if state in ('Stopped', 'Ended'):
             # FIXME: Is there a better VLC event to hook for this?
             self.on_stop_playback(self.player)
         elif state == 'Error':
             # FIXME: Display an error screen, then hold all event triggers for a couple seconds
             pass
-        elif state in ('Opening', 'Buffering'):
-            # FIXME: Need to do some extra magic to properly detect buffering, that should probably be done in player.py though.
-            #        In UPMC VLC would often say "Opening" when really it was buffering,
-            #        but there was something in the mstats that helped figure it out myself.
-            # FIXME: Set window style class to "loading" and do some sort of spinner in CSS
-            pass
-        elif state == 'Playing':
-            # FIXME: Remove the "loading" window style class
-            pass
-        else:
-            logger.info("Unrecognised player state: %s", state)
 
     def on_selected(self, selector, item):
         ## selector is the selector widget as given by the event, this is the same as self.selector

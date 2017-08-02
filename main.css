@@ -29,12 +29,6 @@
 @define-color TangoAluminium6 #2e3436;
 
 /* General */
-@keyframes loading {
-    0% { background-color: @TangoSkyBlue3; }
-    34% { background-color: @TangoSkyBlue2; }
-    67% { background-color: @TangoSkyBlue1; }
-    100% { background-color: @TangoSkyBlue3; }
-}
 GtkWindow,  /* Jessie */
 window      /* Stretch */
 {
@@ -43,15 +37,6 @@ window      /* Stretch */
     background: linear-gradient(to bottom right, @TangoSkyBlue1, @TangoSkyBlue3 40%, @TangoSkyBlue3 60%, @TangoPlum3);
     color: white;
 }
-/*
- * GtkWindow.loading,  \/\* Jessie \*\/
- * window.loading      \/\* Stretch \*\/
- * {
- *     background-color: green;
- *     background-image: none;
- *     animation: loading infinite linear 3s;
- * }
- */
 
 /* WARNING: Don't be the idiot I was and apply font-size: 2em to "*".
  * Changing the font size changes the size of everything else that uses em units,
