@@ -35,7 +35,7 @@ window      /* Stretch */
     /* Currently this background gets overwritten in __main__.py when running on Stretch,
      * this is only here so it doesn't look shit on Jessie */
     background: linear-gradient(to bottom right, @TangoSkyBlue1, @TangoSkyBlue3 40%, @TangoSkyBlue3 60%, @TangoPlum3);
-    color: white;
+    color: @TangoAluminium1;
 }
 
 /* WARNING: Don't be the idiot I was and apply font-size: 2em to "*".
@@ -46,7 +46,13 @@ label      /* Stretch */
 {
     /* FIXME: Is there a "big" font option? Is it big enough for a 10-foot UI?
      *        Alternatively make everything smaller and use GDK_SCALE environment variable for the 10-foot expansion */
-    font-size: 2em;
+    font-size: 1.5em;
+}
+
+GtkLabel#station-name,  /* Jessie */
+label#station-name      /* Stretch */
+{
+    font-size: 2em
 }
 
 #clock {
@@ -55,20 +61,18 @@ label      /* Stretch */
 }
 
 /* OSD */
-#osdFrame, #osdFrame * {
-    /* FIXME: The window background is showing around the OSD overlay.
-     *        Either remove this and give it its own frame, or make it look better with black frame. */
-    border-style: none;
+#osdFrame {
+    /* It's not possible for me to actually round the corners of the OSD over the media player,
+     * because it's not possible to make anything transparent over VLC so you end up with the background colour in the corners.
+     * So instead round the corners of the box inside the frame, then give the frame a background that the box can fade into. */
+    border: 1px solid @TangoSkyBlue1;
+    background-color: @TangoSkyBlue1;
 }
 #osdBox {
-    border-radius: 10px;  /* Round the edges */
-    background-color: @TangoAluminium4;
-    color: white;
-    box-shadow: 0 0 15px black inset;  /* Fade into the unavoidable border of background color */
-    /* NOTE: TangoAluminium6 is not black enough to seamlessly mix with the background black */
-    /* FIXME: During video playback this background *should* be black, however in Jessie it's the selector background color.
-     *        Perhaps we should actually change the OSD colours to use more blue anyway?
-     *        The grey was really just based on the theme I used to use in MythTV */
+    border-radius: 4px;  /* Round the edges */
+    background-color: @TangoSkyBlue3;
+    color: @TangoAluminium1;
+    box-shadow: 0 0 4px @TangoSkyBlue1 inset;  /* Fade into that Frame's background colour */
 }
 
 
@@ -77,7 +81,8 @@ label      /* Stretch */
 .button,  /* Jessie */
 button    /* Stretch */
 {
-    font-size: 40px;  /* FIXME: Magic number based on the icon size. This is effectively doubled due to the 2em in GtkLabel */
+    font-size: 30px;  /* FIXME: Magic number based on the icon size. This is effectively doubled due to the 2em in GtkLabel */
+
     /* Since we make the button itself invisible, we don't care about border-radius, but it might be useful for putting a frame of some sort around the icons
      * border-radius: 50%;  */
     color: @TangoPlum2;
@@ -87,7 +92,7 @@ button    /* Stretch */
     border-style: none;
     /* GtkButton unintuitively has a background-image instead of background-color */
     background-image: none;
-    padding: 0;  /* If you want padding, go look at selector.py:ImageOrLabelButton() */
+    padding: 0px;  /* If you want padding, go look at selector.py:ImageOrLabelButton() */
 }
 
 .button.inactive,  /* Jessie */
@@ -107,23 +112,13 @@ button.inactive:hover    /* Stretch */
     /* Without fully emphasizing the hovered item, we should de-emphasize it less */
     opacity: 0.6;
 }
+
 .button.active:hover,  /* Jessie */
 button.active:hover    /* Stretch */
 {
-    /* I know this is deprecated in favour of "gtk-icon-effect", but I want it to work on both Jessie & Stretch. */
+    /* I know this is deprecated in favour of "gtk-icon-effect", but Jessie doesn't support that. */
     -gtk-image-effect: highlight;
 /*    -gtk-image-effect: highlight/dim/none; */
-}
-
-#ChannelPicker #Picker {
-    /* Despite inactive Pickers never being valid setting the opacity to 0 and back to 1 when active
-     * enhances the ease-in-out effect when changing stations. */
-    opacity: 0;
-
-    transition: 0.5s ease-in-out;
-}
-#ChannelPicker #Picker.active{
-    opacity: 1;
 }
 
 #StationPicker * .button.active,  /* Jessie */
@@ -132,17 +127,15 @@ button.active:hover    /* Stretch */
     /* This button is directly behind the active ChannelPicker, make it invisible */
     opacity: 0;
 
-    transition: 0.5s ease-in-out;
+    transition: 0.4s ease-in-out;
 }
+#ChannelPicker #Picker {
+    /* Despite inactive Pickers never being visible setting the opacity to 0 and back to 1 when active
+     * enhances the ease-in-out effect when changing stations. */
+    opacity: 0;
 
-/*
- * GtkImage,  \/\* Jessie \*\/
- * image      \/\* Stretch \*\/
- * {
- *     box-shadow: none;
- *     border-style: none;
- *     border-image: none;
- *     background-image: none;
- *     background-color: transparent;
- * }
- */
+    transition: 0.4s ease-in-out;
+}
+#ChannelPicker #Picker.active{
+    opacity: 1;
+}

@@ -30,7 +30,6 @@ class OSD(Gtk.Frame):
         super().__init__(
             margin=OUTER_MARGIN,  # Keep it slightly away from the edge
             name="osdFrame",  # Used for CSS styling
-            border_width=2,
             # Anchor it to the top-left
             # FIXME: Doesn't work in top-right. If the label strings get long the entire OSD moves away from the right edge.
             #        Like it's allocating space, but then not using it because the ellipsizing is doing it's job
