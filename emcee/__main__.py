@@ -141,6 +141,7 @@ class Main(Gtk.Window):
         # FIXME: This also triggers when the media is first loaded, I don't want that.
         #        Waiting for "Playing" status isn't good enough, seems to need at least 0.2s after that
         # FIXME: This is also triggering when the media stops, less of an issue but still want fixed
+        #        Disconnecting this in on_stop_playback fixes this, but need to reconnect it at some point.
         self.player.connect('volume_changed',
                             lambda _, v: self.osd.push_status("Volume: {v:4.0%}".format(v=v)))
         self.player.connect_after('set_subtitles',
