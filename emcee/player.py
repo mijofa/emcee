@@ -101,7 +101,6 @@ class VLCWidget(Gtk.DrawingArea):
 
         # Initialise the DrawingArea
         super(VLCWidget, self).__init__(*args)
-        self.set_size_request(640, 360)  # FIXME: Magic number, is a small 16:9 ratio for the default window size
 
         # Create the VLC instance, and tell it how to inject itself into the DrawingArea widget.
         self.instance = vlc.Instance()
