@@ -3,9 +3,7 @@ gi.require_version('Gtk', '3.0')
 gi.require_version('Gdk', '3.0')
 gi.require_version('GObject', '2.0')
 gi.require_version('Pango', '1.0')
-gi.require_version('GLib', '2.0')
-from gi.repository import Gtk, GObject, Gdk, Pango, GdkPixbuf, GLib
-import time
+from gi.repository import Gtk, GObject, Gdk, Pango, GdkPixbuf
 import emcee.vfs
 import logging
 logger = logging.getLogger(__name__)
@@ -13,16 +11,10 @@ logger = logging.getLogger(__name__)
 # Note, BUTTON_SIZE should be slightly larger than the icon images themselves.
 # I'm not really sure how much larger as I never bothered to look for the numbers,
 # but the Button has it's own border that it puts around the icons that needs to be accounted for.
-BUTTON_WIDTH = 150  # FIXME: This is based on the current size of the channel gifs
-BUTTON_HEIGHT = 150  # FIXME: This is based on the current size of the channel gifs
+BUTTON_WIDTH = 120
+BUTTON_HEIGHT = 120
 OFFSET_UPPER = BUTTON_HEIGHT * 0.6
 OFFSET_LEFT = BUTTON_WIDTH * 0.6
-
-EPG_TEMPLATE = """{channel.title}
-NOW:  {channel.epg_brief.now}
-NEXT:  {channel.epg_brief.next}"""
-
-TIME_FORMAT = '%X'  # FIXME: Copy-pasted from osd.py
 
 
 class ImageOrLabelButton(Gtk.Button):
@@ -299,10 +291,7 @@ class StreamSelector(Gtk.Overlay):
         info_box = Gtk.VBox()
         under_box.pack_start(info_box, expand=True, fill=True, padding=0)
 
-        ## Station label and current clock time to sit above the channel scroller
-        upper_info = Gtk.HBox()
-        upper_info.set_size_request(-1, OFFSET_UPPER)
-        info_box.pack_start(upper_info, expand=False, fill=False, padding=0)
+        ## Station label to sit above the channel scroller
         self.station_label = Gtk.Label(
             name="station-name",
             halign=Gtk.Align.CENTER,
@@ -311,25 +300,10 @@ class StreamSelector(Gtk.Overlay):
         )
         self.station_label.set_ellipsize(Pango.EllipsizeMode.END)
         self.station_label.set_text("Station title")
+        self.station_label.set_size_request(-1, OFFSET_UPPER)
+        info_box.pack_start(self.station_label, expand=False, fill=False, padding=0)
 
-        upper_info.pack_start(self.station_label, expand=True, fill=True, padding=0)
-        clock = Gtk.Label(
-            name="clock",
-            halign=Gtk.Align.END,
-            valign=Gtk.Align.START,
-            justify=Gtk.Justification.RIGHT,
-        )
-        # FIXME: Actually update this every minute
-        # FIXME: Make this format and the OSD clock format match.
-        upper_info.pack_start(clock, expand=False, fill=False, padding=0)
-
-        # Set up GLib to update the clock whenever it has a free moment
-        # FIXME: Do this less often!
-        def f():
-            # Only need a function so that it can return True, otherwise GObject removes the thread.
-            clock.set_text(time.strftime(TIME_FORMAT))
-            return True
-        GObject.idle_add(f, priority=GLib.PRIORITY_LOW)
+        # FIXME: Put a clock somewhere on this screen?
 
         ## EPG info to go below the channel scroller
         epg_spacer = Gtk.DrawingArea()
@@ -338,6 +312,7 @@ class StreamSelector(Gtk.Overlay):
         info_box.pack_start(epg_spacer, expand=False, fill=False, padding=0)
         self.epg_label = Gtk.Label(
             name="epg",
+            xalign=Gtk.Align.FILL,  # This makes wrapping/ellipsizing not move the text away from the left
             halign=Gtk.Align.START,
             valign=Gtk.Align.START,
             justify=Gtk.Justification.LEFT,
@@ -346,12 +321,8 @@ class StreamSelector(Gtk.Overlay):
         # FIXME: With line wrapping enabled the minimum window size changes with different menu items.
         #        I suspect this might get worse as we put real EPG data in
         # UPDATE: I think what's going on is despite the ellipsizing, the Label is still growing to its full wrapped size
-#        self.epg_label.set_line_wrap(True)  # Has no effect with ellipsize set unless set_lines is called
-#        self.epg_label.set_lines(2)  # This is how many lines it's allowed to *wrap*, it does not affect how many \n I can use
-        # NOTE: With the wrapping set up like this, it's possible the channel name or the now/next strings will wrap and look bad.
-        # FIXME: Should we use separate labels here so as to get different wrapping behaviour for each?
-        #        Alternatively can we use the markup thing to do that?
-        self.epg_label.set_text(EPG_TEMPLATE)
+        self.epg_label.set_line_wrap(True)  # Has no effect with ellipsize set unless set_lines is called
+        self.epg_label.set_lines(2)  # This is how many lines it's allowed to *wrap*, it does not affect how many \n I can use
         info_box.pack_start(self.epg_label, expand=True, fill=True, padding=0)
 
         self.channel_picker.connect('focus-change', self.on_channel_change)
@@ -369,7 +340,7 @@ class StreamSelector(Gtk.Overlay):
     def on_channel_change(self, widget, channel):
         # FIXME: Get the NOW/NEXT info from EPG via the VFS
         self.selected_channel = channel
-        self.epg_label.set_text(EPG_TEMPLATE.format(channel=channel))
+        self.epg_label.set_markup(channel.get_epg())
 
     def on_station_change(self, widget, station):
         self.selected_station = station

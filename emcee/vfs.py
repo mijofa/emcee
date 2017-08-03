@@ -5,12 +5,11 @@ import os
 import sys
 import collections
 import random
+import gi
+gi.require_version('GLib', '2.0')
+from gi.repository import GLib
 
 TVDIR = '/home/mike/Videos/tv'
-
-Station = collections.namedtuple('Station', 'title icon channels')
-Channel = collections.namedtuple('Channel', 'title icon epg_brief uri')
-EPG_brief = collections.namedtuple('EPG_brief', 'now next next_starttime')
 
 # Test data.
 data = {'ABC': ['ABC News 24',
@@ -46,7 +45,22 @@ data = {'ABC': ['ABC News 24',
 
 with open('epgs', 'r') as f:
     epg_samples = [l.strip() for l in f.readlines()]
-    random.shuffle(epg_samples)
+
+
+# FIXME: Named tuples were a quick-and-dirty way to do this, create proper classes for these objects
+Station = collections.namedtuple('Station', 'title icon channels')
+ChannelTuple = collections.namedtuple('Channel', 'title icon uri')
+
+
+class Channel(ChannelTuple):
+    def get_epg(self, template="<big>{title}</big>\n<b>NOW</b>: {now_title}\n<b>NEXT\u00A0({next_starttime})</b>: {next_title}"):
+        # FIXME: Is this the right place to be doing this escaping?
+        return template.format(
+            title=self.title.replace(' ', '\u00A0'),  # Use non-breaking space to force this line not to wrap
+            now_title=GLib.markup_escape_text(random.choice(epg_samples)),
+            next_title=GLib.markup_escape_text(random.choice(epg_samples)),
+            next_starttime=GLib.markup_escape_text("23:59\u00A0AM"),
+        )
 
 
 class VirtualFilesystem():
@@ -66,12 +80,7 @@ class VirtualFilesystem():
                 station_channels.append(Channel(
                     title=channel_title,
                     icon=icon_filename,  # FIXME: Make this use a file-object or similar
-                    epg_brief=EPG_brief(
-                        now=epg_samples[ind],
-                        next=epg_samples[ind + 1],
-                        next_starttime="23:59am",
-                    ),
-                    uri='{}'.format(sys.argv[1]),
+                    uri='{}'.format(sys.argv[-1]),
                 ))
                 ind += 2
 
