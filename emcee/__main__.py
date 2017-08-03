@@ -109,14 +109,15 @@ class Main(Gtk.Window):
         self.add(self.overlay)
         self.overlay.show()
 
-        self.osd = emcee.osd.OSD()
-        self.overlay.add_overlay(self.osd)
-        # Not showing this yet as I want it hidden by default
-
         # Loading spinner to show & start while opening and buffering a stream
+        # NOTE: Add this before the OSD, so the OSD goes above the spinner
         # FIXME: I can't style this or set a background, wtf?
         self.spinner = Gtk.Spinner()
         self.overlay.add_overlay(self.spinner)
+        # Not showing this yet as I want it hidden by default
+
+        self.osd = emcee.osd.OSD()
+        self.overlay.add_overlay(self.osd)
         # Not showing this yet as I want it hidden by default
 
         self.selector = emcee.selector.StreamSelector()
@@ -130,7 +131,6 @@ class Main(Gtk.Window):
 
     def _init_player(self):
         self.player = emcee.player.VLCWidget()
-#        self.player.load_media(sys.argv[1])  # FIXME: Early testing only, remove this!
         self.player.show_all()
 
         # FIXME: Do we need to hook into vlc.EventType.VlmMediaInstanceStopped as well?
@@ -139,7 +139,7 @@ class Main(Gtk.Window):
         self.player.connect('media_state', self.on_media_state)
 
         # FIXME: This also triggers when the media is first loaded, I don't want that.
-        #        Waiting for "Playing" status isn't good enough, seems to wait at least 0.2s
+        #        Waiting for "Playing" status isn't good enough, seems to need at least 0.2s after that
         # FIXME: This is also triggering when the media stops, less of an issue but still want fixed
         self.player.connect('volume_changed',
                             lambda _, v: self.osd.push_status("Volume: {v:4.0%}".format(v=v)))
@@ -149,10 +149,7 @@ class Main(Gtk.Window):
     def on_media_state(self, player, state):
         ## player is the player widget as given by the event, this is the same as self.player
         logger.debug('State changed to %s', state)
-        if state in ('Opening', 'Buffering'):
-            self.spinner.show()
-            self.spinner.start()
-        else:
+        if state not in ('Opening', 'Buffering'):
             # Not doing state == 'Playing' here because I want it to happen even if we error before we finish buffering
             self.spinner.stop()
             self.spinner.hide()
@@ -167,20 +164,15 @@ class Main(Gtk.Window):
     def on_selected(self, selector, item):
         ## selector is the selector widget as given by the event, this is the same as self.selector
         # Activate any loading screen as early as possible before actually loading the media.
+        self.spinner.show()
+        self.spinner.start()
         self.mode = "player"
         self.get_style_context().add_class("loading")
         self.overlay.remove(selector)
 
-        # FIXME: Without using idle_add here an intermittent issue was occuring when setting window title.
-        # FIXME: Not able to reproduce it anymore, so I've left it out for now.
-        self.set_title('Emcee - {}'.format(item.title))
-        self.osd.set_default_status(item.title)
-        # Update the OSD title whenever it's shown again.
-        # FIXME: Make this update only when the title changes
-        self.osd_updater = self.osd.connect(
-            'show', lambda osd: osd.set_title(self.player.get_title()))
-
         # Set up the player
+        # Do this immediately so that VLC can use the time Emcee spends getting ready to buffer in the background
+        # FIXME: If VLC loads too quickly will it create it's own window?
         ## FIXME: Use urlparse() or something to determine if it's actually a local path vs. remote URI.
         ##        VLC's criteria for this is stupid and deems things like "/foo/bar/Mad Max 2: Fury Road.avi" as remote
         ##        because of the ':' in the path.
@@ -190,19 +182,30 @@ class Main(Gtk.Window):
         # Is it worth actually running load_media when changing focus in the selector?
         # Or perhaps when the user stops changing focus for a second?
         # We can't put the playback in the background of the menu, but maybe at least start buffering without the user knowing
+        # UPDATE: I think VLC doesn't actually start loading until it's told to play, which we can't do too early.
 
         self.overlay.add(self.player)
-        self.player.show()
-        # Make sure to play *after* showing, or VLC could end up creating it's own window.
-        # UPDATE: I think this is no longer entirely valid and play can be run before show,
-        #         but must be after adding the widget to window object (or child thereof)
+        # Make sure to play *after* adding the widget, or VLC could end up creating it's own window.
         self.player.emit('play')
+        self.player.show()
+
+        # FIXME: Without using idle_add here an intermittent issue was occuring when setting window title.
+        # FIXME: Not able to reproduce it anymore, so I've left it out for now.
+        self.set_title('Emcee - {}'.format(item.title))
+        self.osd.set_default_status(item.title)
+        # Update the OSD title whenever it's shown again.
+        # FIXME: Make this update only when the title changes
+        #        I couldn't find a VLC event hook that triggered when the Meta changed, one claimed to, but wasn't reliable.
+        self.osd_updater = self.osd.connect(
+            'show', lambda osd: osd.set_title(self.player.get_title()))
+
         self.osd.show(5)
 
     def on_stop_playback(self, player):
         ## player is the player widget as given by the event, this is the same as self.player
         self.mode = 'selector'
         self.osd.disconnect(self.osd_updater)
+        self.osd.set_default_status('')
         self.osd.set_title('')
 
         self.overlay.remove(player)
