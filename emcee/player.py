@@ -50,8 +50,8 @@ class VLCWidget(Gtk.DrawingArea):
         # Signals emitted internally for status updates to be collected externally
         'end_reached': (GObject.SIGNAL_ACTION, None, ()),
         'time_changed': (GObject.SIGNAL_ACTION, None, (int,)),
-        'position_changed': (GObject.SIGNAL_ACTION, None, (int,)),
-        'volume_changed': (GObject.SIGNAL_ACTION, None, (int,)),
+        'position_changed': (GObject.SIGNAL_ACTION, None, (float,)),
+        'volume_changed': (GObject.SIGNAL_ACTION, None, (float,)),
         'paused': (GObject.SIGNAL_ACTION, None, ()),
         'playing': (GObject.SIGNAL_ACTION, None, ()),
         'media_state': (GObject.SIGNAL_ACTION, None, (str,)),
