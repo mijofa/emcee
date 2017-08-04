@@ -180,7 +180,9 @@ class VLCWidget(Gtk.DrawingArea):
         # Surprisingly, the VLC event object doesn't include the new volume.
         # So Need to query that here
         self.volume = self.player.audio_get_volume() / 100
-        self.emit('volume_changed', self.volume)
+        if not self.volume < 0:
+            # When quitting media this triggers with a -0.01 volume, users don't care about this.
+            self.emit('volume_changed', self.volume)
 
     def _on_time_changed(self, event):
         if self.state == 'Buffering':
