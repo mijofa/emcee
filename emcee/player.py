@@ -353,6 +353,10 @@ class VLCWidget(Gtk.DrawingArea):
             self.player.video_set_spu(-1)
             new_subs = 'Disabled'
 
+        # FIXME: What about teletext transparency?
+        #        Leaving this as whatever the default is (transparency enabled) for v1.
+        #        Ideally would cycle through transparent/opaque while incrementing.
+
         subtitles = self._get_subtitles()
 
         if len(subtitles) == 1:
