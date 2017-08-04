@@ -1,0 +1,24 @@
+vfs implementation
+------------------
+
+FIXME: Pete could (and maybe should) be replaced with a single process that exists only for Emcee, so as to avoid DDoSing Pete's session.py
+
+1. Emcee starts
+2. Emcee queries Pete for json of list of stations & channels
+2.5. Either that includes icons, or we query for them separately
+3. Emcee queries Pete for json of EPG now/next data for *every* channel
+4. OPTIONAL really low priority: Emcee queries Pete every ~10-15 minutes for new EPG data. ONLY when the menu is in focus
+5. Emcee queries Pete for new EPG data when returning to the menu
+
+Problems to solve (or ignore)
+-----------------------------
+
+What if a channel/station gets added/removed/renamed while Emcee is running?
+* Mike's opinion: This is rare. Fuck it, no easy way to handle this, just keep the station/channel list in memory and never update it
+* Trent's opinion: This is rare, but keep it in mind
+* I asked David how often he adds/removes/renames channels and/or stations and he said "probably once or twice a year"
+
+What if an inmate loads the menu, then goes off to play in the yard for a few hours before returning?
+* Mike's opinion: We do #4 above
+* Trent's opinion: We don't care and shouldn't put real effort into this
+
