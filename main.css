@@ -74,6 +74,11 @@ label#station-name      /* Stretch */
     color: @TangoAluminium1;
     box-shadow: 0 0 4px @TangoSkyBlue1 inset;  /* Fade into that Frame's background colour */
 }
+#osdBox GtkLabel,  /* Jessie*/
+#osdBox label      /* Stretch */
+{
+    padding: 2px 4px;
+}
 
 
 /* Selector */

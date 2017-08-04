@@ -54,7 +54,19 @@ class OSD(Gtk.Frame):
         self._status = Gtk.Statusbar(  # FIXME: Should this perhaps be a Gtk.StatusBar?
             name="status",
             halign=Gtk.Align.START,
+            # Getting rid of these margins in CSS wasn't working, leaving them here makes the statusbar not line up with the title.
+            margin_start=0,
+            margin_end=0,
+            margin_top=0,
+            margin_bottom=0,
         )
+        # Why is Statusbar 3 levels deep when it could just add a label to the statusbar instead a box with a label inside?
+        # The box itself has some annoying margins on it too, I couldn't remove these in CSS either.
+        status_box = self._status.get_message_area()
+        status_box.set_margin_top(0)
+        status_box.set_margin_start(0)
+        status_box.set_margin_end(0)
+        status_box.set_margin_bottom(0)
 
         # Current time.
         clock = Gtk.Label(
