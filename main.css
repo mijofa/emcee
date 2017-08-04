@@ -80,6 +80,13 @@ label#station-name      /* Stretch */
     padding: 2px 4px;
 }
 
+/* I couldn't find any way to change the size of the ProgressBar in Jessie so I left out the ProgressBar entirely.
+ * This will work in Stretch, left commented out because it's considered invalid syntax in Jessie and Gtk won't run.
+ * progressbar trough,
+ * progressbar trough progress {
+ *     min-height: 0.75em;
+ * }
+ */
 
 /* Selector */
 

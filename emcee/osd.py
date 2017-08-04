@@ -93,30 +93,20 @@ class OSD(Gtk.Frame):
         status_line.pack_start(clock, expand=False, fill=False, padding=0)
         vbox.pack_start(status_line, expand=True, fill=True, padding=0)
 
-        vbox.show_all()  # This shows all widgets inside the Frame, allowing me to use show/hide to toggle the frame itself
-
         # Current position, if we don't know the end time maybe this should be hidden.
-        # FIXME: Was never able to make the progressbar thicker than 6px, that's not suitable for a 10-foot UI
-        #        We decided to turn off the ProgressBar entirely because it's not necessary for streaming media, can be fixed later
-        def f():
-            pass
+        # FIXME: Couldn't figure out how to change the thickness of the ProgressBar in Jessie.
+        #        We decided to turn off the ProgressBar entirely because it's not necessary for streaming media.
+        #        Did solve this in Stretch though, so add it back in later
+        if False:
+            logger.debug('Adding progress bar to OSD')
+            position = Gtk.ProgressBar()
+            vbox.pack_end(position, expand=True, fill=True, padding=0)
+    
+            self.set_position = position.set_fraction
+        else:
+            self.set_position = lambda: None
 
-        self.set_position = f
-        self.vbox = vbox  # Only here for the temporary set_has_position function
-
-    def set_has_position(self, has_position):
-        logger.debug('Adding progress bar to OSD')
-        # FIXME: This is not suitable for the end result, I've only put this here for use at home when not 10-feet away.
-        assert type(has_position) == bool
-        if not has_position:
-            raise NotImplementedError("Haven't actually implemented removing the progress bar")
-        position = Gtk.ProgressBar(
-            vexpand=True,
-            valign=Gtk.Align.FILL,
-        )
-        self.vbox.pack_end(position, expand=True, fill=True, padding=0)
-
-        self.set_position = position.set_fraction
+        vbox.show_all()  # This shows all widgets inside the Frame, allowing me to use show/hide to toggle the frame itself
 
     def _update_time(self):
         # This function runs *very* often uncommenting this could fill the debug screen in less than a second
