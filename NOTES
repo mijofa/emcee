@@ -1,5 +1,30 @@
+Notifications
+=============
+PROBLEM: On Jessie xfce4-notifyd notifications appear below Emcee in its current state.
+
+Looking at the stacking order specification here
+https://specifications.freedesktop.org/wm-spec/1.3/ar01s07.html#STACKINGORDER
+and the relevant xrprop info from a notification:
+> _NET_WM_STATE(ATOM) = _NET_WM_STATE_STICKY, _NET_WM_STATE_SKIP_PAGER, _NET_WM_STATE_SKIP_TASKBAR, _NET_WM_STATE_ABOVE
+And the same from Emcee in fullscreen mode:
+> _NET_WM_STATE(ATOM) = _NET_WM_STATE_FULLSCREEN
+
+I think I have to make Emcee not use the _NET_WM_STATE_FULLSCREEN state and instead make a maximized borderless ( .set_decorated(False) ) window, and somehow make it maximize over the taskbar.
+
+UPDATE: I believe this is unsolvable without hooking into libnotify and drawing the notification ourselves.
+        Closest I got was setting the window type hint to "Dock", but dock type windows can't accept keyboard input nor is it possible to keep the taskbar & pager hints. I saw evidence of other issues with resizing and such, but I didn't get that far.
+
+If implementing our own notification-daemon, here is someone who's correctly implemented a notification-daemon in Python. They've done some stupid things with threading and the config importing, it's also based on Python2, but it's simple enough to make sense of and copy from
+This works with volume update notifications by simply giving text output when volume changes. Perhaps we can make it completely ignore the volume change notifications, or we can replace the VLC volume notifications.
+https://github.com/halhen/statnot
+
+This is someone else's similar project, I didn't do any testing of this though as it's a bigger project and harder to get my head wrapped around (0 code comments)
+https://github.com/mk-fg/notification-thing
+
+
+
 vfs implementation
-------------------
+==================
 
 FIXME: Pete could (and maybe should) be replaced with a single process that exists only for Emcee, so as to avoid DDoSing Pete's session.py
 
