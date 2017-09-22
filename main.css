@@ -32,9 +32,15 @@
 GtkWindow,  /* Jessie */
 window      /* Stretch */
 {
-    /* Currently this background gets overwritten in __main__.py when running on Stretch,
-     * this is only here so it doesn't look shit on Jessie */
-    background: linear-gradient(to bottom right, @TangoSkyBlue1, @TangoSkyBlue3 40%, @TangoSkyBlue3 60%, @TangoPlum3);
+    /* FIXME: Magic number. 132px is selector.py:OFFSET_UPPER + (selector.py:BUTTON_HEIGHT / 2)
+     *        which gets a point in the center of the currently selected button */
+    background: radial-gradient(farthest-corner at 132px 132px,
+                                @TangoAluminium3,
+                                @TangoSkyBlue1 90px,
+                                @TangoSkyBlue3 150px,
+                                @TangoPlum3);
+    /* Debian Jessie's version of Gtk doesn't support radial-gradient, use this when necessary
+     *            linear-gradient(to bottom right, @TangoSkyBlue1, @TangoSkyBlue3 40%, @TangoSkyBlue3 60%, @TangoPlum3); */
     color: @TangoAluminium1;
 }
 
