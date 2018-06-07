@@ -67,3 +67,4 @@ Problems we've had with UPMC
 * Users tend to use the mouse even though there is no visible mouse-pointer and mouse usage is completely undocumented.
 * Users don't like needing to go out of the stream, back to the menu to pick a new channel, next/prev channel buttons made them happy.
 * AOSD is horrible, it's also not actually available in the Jessie repo.
+* When UPMC crashes on startup there is zero indication that UPMC even attempted to start, let alone that it crashed. This mostly caused problems when there was no ALSA mixer (#30022)
